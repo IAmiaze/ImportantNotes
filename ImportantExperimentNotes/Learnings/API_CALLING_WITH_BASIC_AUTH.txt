@@ -1,0 +1,30 @@
+/* Formatted on 6/5/2024 5:35:53 PM (QP5 v5.360) */
+DECLARE
+    l_response   CLOB;
+    custNo       VARCHAR2 (100);
+BEGIN
+    APEX_WEB_SERVICE.g_request_headers (1).name := 'Content-Type';
+    APEX_WEB_SERVICE.g_request_headers (1).VALUE := 'application/json';
+
+
+    l_response :=
+        apex_web_service.make_rest_request (
+            p_url                =>
+                   'http://10.11.204.213:8888/psb/api/core_transaction/5021965590701/4205',
+            p_http_method        => 'GET',
+            p_username           => 'API_ACCESS',
+            p_password           => '123456',
+            p_parm_name          => APEX_UTIL.string_to_table (''),
+            p_parm_value         => APEX_UTIL.string_to_table (''),
+            p_transfer_timeout   => 10);
+
+    apex_json.parse (l_response);
+    custNo := apex_json.get_varchar2 ('pCustNo');
+
+    IF apex_web_service.g_status_code != 200
+    THEN
+        DBMS_OUTPUT.put_line ('Error'||apex_web_service.g_status_code);
+    END IF;
+
+    DBMS_OUTPUT.put_line (custNo);
+END;

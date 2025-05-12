@@ -1,0 +1,11 @@
+if ($v("P2_PARTY_TYPE")=='P') {
+    $("label[for=P2_PARTY]").text("First Name")
+} else if ($v("P2_PARTY_TYPE")=='O') {
+    $("label[for=P2_PARTY]").text("Organization")
+}
+else if ($v("P2_PARTY_TYPE")=='A') {
+    $("label[for=P2_PARTY]").text("Agent")
+}
+else if ($v("P2_PARTY_TYPE")=='V') {
+    $("label[for=P2_PARTY]").text("Vendor")
+}

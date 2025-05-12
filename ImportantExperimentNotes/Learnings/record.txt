@@ -1,0 +1,109 @@
+DECLARE
+    -- Define a record type with the selected columns
+    TYPE t_mb_account_mst_record IS RECORD
+    (
+        ac_id         EMOB.MB_ACCOUNT_MST.AC_ID%TYPE,
+        ac_no         EMOB.MB_ACCOUNT_MST.AC_NO%TYPE,
+        ac_title      EMOB.MB_ACCOUNT_MST.AC_TITLE%TYPE,
+        cust_no       EMOB.MB_ACCOUNT_MST.CUST_NO%TYPE,
+        ac_status     EMOB.MB_ACCOUNT_MST.AC_STATUS%TYPE,
+        open_date     EMOB.MB_ACCOUNT_MST.OPEN_DATE%TYPE,
+        close_date    EMOB.MB_ACCOUNT_MST.CLOSE_DATE%TYPE
+    );
+
+    TYPE t_mb_account_mst_table IS TABLE OF t_mb_account_mst_record;
+
+    v_accounts   t_mb_account_mst_table;
+
+    CURSOR c_ac_mst IS
+        SELECT AC_ID,
+               AC_NO,
+               AC_TITLE,
+               CUST_NO,
+               AC_STATUS,
+               OPEN_DATE,
+               CLOSE_DATE
+          FROM EMOB.MB_ACCOUNT_MST;
+
+    v_limit PLS_INTEGER := 100; -- Adjust the limit for the bulk collect
+BEGIN
+    OPEN c_ac_mst;
+
+    -- Initialize the collection variable
+    v_accounts := t_mb_account_mst_table ();
+
+    -- Fetch data into the collection with a limit
+    LOOP
+        FETCH c_ac_mst BULK COLLECT INTO v_accounts LIMIT v_limit;
+
+        EXIT WHEN v_accounts.COUNT = 0;
+
+        -- Display the data
+        FOR i IN 1 .. v_accounts.COUNT
+        LOOP
+            DBMS_OUTPUT.PUT_LINE (
+                   'Account ID: '
+                || v_accounts (i).ac_id
+                || ', Account No: '
+                || v_accounts (i).ac_no
+                || ', Account Title: '
+                || v_accounts (i).ac_title
+                || ', Customer No: '
+                || v_accounts (i).cust_no
+                || ', Account Status: '
+                || v_accounts (i).ac_status
+                || ', Open Date: '
+                || TO_CHAR (v_accounts (i).open_date, 'YYYY-MM-DD')
+                || ', Close Date: '
+                || TO_CHAR (v_accounts (i).close_date, 'YYYY-MM-DD'));
+        END LOOP;
+    END LOOP;
+
+    CLOSE c_ac_mst;
+END;
+/
+
+EXIT WHEN v_accounts.COUNT = 0;
+
+        -- Perform bulk update using FORALL
+        FORALL i IN 1 .. v_accounts.COUNT
+            UPDATE EMOB.MB_ACCOUNT_UPDATES
+            SET
+                AC_NO = v_accounts(i).ac_no,
+                AC_TITLE = v_accounts(i).ac_title,
+                CUST_NO = v_accounts(i).cust_no,
+                AC_STATUS = v_accounts(i).ac_status,
+                OPEN_DATE = v_accounts(i).open_date,
+                CLOSE_DATE = v_accounts(i).close_date
+            WHERE AC_ID = v_accounts(i).ac_id;
+
+        -- Optionally, display the data for debugging purposes
+        FOR i IN 1 .. v_accounts.COUNT
+        LOOP
+            DBMS_OUTPUT.PUT_LINE (
+                   'Account ID: '
+                || v_accounts (i).ac_id
+                || ', Account No: '
+                || v_accounts (i).ac_no
+                || ', Account Title: '
+                || v_accounts (i).ac_title
+                || ', Customer No: '
+                || v_accounts (i).cust_no
+                || ', Account Status: '
+                || v_accounts (i).ac_status
+                || ', Open Date: '
+                || TO_CHAR (v_accounts (i).open_date, 'YYYY-MM-DD')
+                || ', Close Date: '
+                || TO_CHAR (v_accounts (i).close_date, 'YYYY-MM-DD'));
+        END LOOP;
+    END LOOP;
+
+    CLOSE c_ac_mst;
+
+
+
+
+
+
+
+

@@ -1,0 +1,96 @@
+CREATE TABLE CUSTOMER (
+    CUST_ID NUMBER PRIMARY KEY,
+    ADDRESS CLOB CHECK (ADDRESS IS JSON),
+    CONTACT_DETAILS CLOB CHECK (CONTACT_DETAILS IS JSON)
+);
+//CREATE OR REPLACE PROCEDURE insert_customer(
+    p_cust_id          IN NUMBER,
+    p_addtype          IN VARCHAR2,
+    p_street           IN VARCHAR2,
+    p_city             IN VARCHAR2,
+    p_state            IN VARCHAR2,
+    p_postalcode       IN VARCHAR2,
+    p_country          IN VARCHAR2,
+    p_contact_details  IN CLOB
+) AS
+    v_address CLOB;
+BEGIN
+    -- Initialize the CLOB
+    DBMS_LOB.CREATETEMPORARY(v_address, TRUE);
+
+    -- Build the JSON string dynamically based on address type
+    IF p_addtype = 'PRS' THEN
+        v_address := '{"PresentAddress": {';
+    ELSIF p_addtype = 'BIL' THEN
+        v_address := '{"BillingAddress": {';
+    ELSE
+        RAISE_APPLICATION_ERROR(-20001, 'Invalid address type');
+    END IF;
+
+    -- Append address details
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('"Street": "'), '"Street": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_street), p_street);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('", "City": "'), '", "City": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_city), p_city);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('", "State": "'), '", "State": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_state), p_state);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('", "PostalCode": "'), '", "PostalCode": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_postalcode), p_postalcode);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('", "Country": "'), '", "Country": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_country), p_country);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('"}}'), '"}}');
+
+    -- Insert the record into the CUSTOMER table
+    INSERT INTO CUSTOMER (CUST_ID, ADDRESS, CONTACT_DETAILS)
+    VALUES (p_cust_id, v_address, p_contact_details);
+
+    -- Free the temporary CLOB
+    DBMS_LOB.FREETEMPORARY(v_address);
+END;
+/
+/*
+CREATE OR REPLACE PROCEDURE update_customer_address(
+    p_cust_id          IN NUMBER,
+    p_addtype          IN VARCHAR2,
+    p_street           IN VARCHAR2,
+    p_city             IN VARCHAR2,
+    p_state            IN VARCHAR2,
+    p_postalcode       IN VARCHAR2,
+    p_country          IN VARCHAR2
+) AS
+    v_address CLOB;
+BEGIN
+    -- Initialize the CLOB
+    DBMS_LOB.CREATETEMPORARY(v_address, TRUE);
+
+    -- Build the JSON string dynamically based on address type
+    IF p_addtype = 'PRS' THEN
+        v_address := '{"PresentAddress": {';
+    ELSIF p_addtype = 'BIL' THEN
+        v_address := '{"BillingAddress": {';
+    ELSE
+        RAISE_APPLICATION_ERROR(-20001, 'Invalid address type');
+    END IF;
+
+    -- Append address details
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('"Street": "'), '"Street": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_street), p_street);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('", "City": "'), '", "City": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_city), p_city);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('", "State": "'), '", "State": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_state), p_state);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('", "PostalCode": "'), '", "PostalCode": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_postalcode), p_postalcode);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('", "Country": "'), '", "Country": "');
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH(p_country), p_country);
+    DBMS_LOB.WRITEAPPEND(v_address, LENGTH('"}}'), '"}}');
+
+    -- Update the customer's address in the CUSTOMER table
+    UPDATE CUSTOMER
+    SET ADDRESS = v_address
+    WHERE CUST_ID = p_cust_id;
+
+    -- Free the temporary CLOB
+    DBMS_LOB.FREETEMPORARY(v_address);
+END;
+/

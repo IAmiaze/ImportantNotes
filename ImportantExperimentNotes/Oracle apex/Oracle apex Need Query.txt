@@ -1,0 +1,30 @@
+---for Pages Query---
+SELECT *
+  FROM APEX_APPLICATION_PAGES
+ WHERE     APPLICATION_ID = 105
+       AND PAGE_ID IN (183,148,150,
+                       180,149,156,
+                       162,161,182,
+                       152,155,154,
+                       139,146,91);
+
+----------Region ID--------------
+SELECT region_id
+FROM apex_application_page_regions
+WHERE application_id = <your_application_id>
+AND page_id = :
+AND region_name = :;
+
+------Debug and Activity log------
+
+SELECT APEX_DEBUG_MESSAGES.APEX_USER,
+       APEX_DEBUG_MESSAGES.APPLICATION_ID,
+       APEX_WORKSPACE_ACTIVITY_LOG.APPLICATION_NAME,
+       APEX_DEBUG_MESSAGES.PAGE_ID,
+       APEX_DEBUG_MESSAGES.MESSAGE,
+       APEX_DEBUG_MESSAGES.MESSAGE_TIMESTAMP,
+       APEX_DEBUG_MESSAGES.PAGE_VIEW_ID,
+       APEX_DEBUG_MESSAGES.SESSION_ID
+  FROM APEX_WORKSPACE_ACTIVITY_LOG
+       INNER JOIN APEX_DEBUG_MESSAGES
+           ON APEX_WORKSPACE_ACTIVITY_LOG.DEBUG_PAGE_VIEW_ID = APEX_DEBUG_MESSAGES.PAGE_VIEW_ID

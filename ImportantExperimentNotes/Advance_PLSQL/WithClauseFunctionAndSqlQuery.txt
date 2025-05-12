@@ -1,0 +1,15 @@
+WITH
+    FUNCTION findLatestHireDate
+        RETURN DATE
+    IS
+        latest_date   DATE;
+    BEGIN
+        SELECT MAX (VERIFY_DATE)
+          INTO latest_date
+          FROM EMOIB.ACCOUNT_VERIFICATION_HIS;
+
+        RETURN latest_date;
+    END findLatestHireDate;
+
+SELECT AC_NO, findLatestHireDate ()
+  FROM EMOIB.ACCOUNT_VERIFICATION_HIS;

@@ -1,0 +1,44 @@
+CONN SYS/SYS@orclpdb AS SYSDBA
+
+CREATE TABLESPACE APEX241 DATAFILE 'C:\APPP\DataBase\oradata\ORCL\APEX321.dbf' SIZE 1000M AUTOEXTEND ON NEXT 1M;
+
+@apexins.sql APEX241 APEX241 TEMP /i/
+@apxchpwd.sql
+
+Pa$$word!11
+
+ALTER USER anonymous ACCOUNT UNLOCK;
+alter user APEX_PUBLIC_USER identified by APEX241 account unlock;
+ALTER USER flows_files ACCOUNT UNLOCK;
+
+
+@apex_rest_config.sql
+
+
+pass--APEX241
+
+Now, disable the Oracle XML DB Protocol Server by using the following commands: 
+SELECT DBMS_XDB.GETHTTPPORT FROM DUAL;
+EXEC DBMS_XDB.SETHTTPPORT(0);
+
+
+alter user APEX_LISTENER identified by APEX241 account unlock;
+alter user APEX_REST_PUBLIC_USER identified by APEX241 account unlock;
+
+C:\APPP\Apex\ORDS>mkdir config
+
+java -jar ords.war --config C:\APPP\Apex\ORDS\ORACLE_ORDS\config  install
+
+java -jar ords.war --config C:\APPP\Apex\ORDS\ORACLE_ORDS\config uninstall
+
+java -jar ords.war --config   uninstall
+
+‘jdbc:oracle:thin:@localhost:1521:apexdb
+
+C:\APPP\Apex\apex_24.1\apex\images
+
+reset_image_prefix_con.sql
+
+@apxremov.sql
+
+Tomcat_mw.exe --> Java---> -Dconfig.url=C:\APPP\Apex\ORDS\ORACLE_ORDS\config\

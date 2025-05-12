@@ -1,0 +1,21 @@
+🔍 𝐑𝐞𝐭𝐫𝐢𝐞𝐯𝐢𝐧𝐠 𝐃𝐞𝐥𝐞𝐭𝐞𝐝 𝐃𝐚𝐭𝐚 𝐢𝐧 𝐎𝐫𝐚𝐜𝐥𝐞 𝐒𝐐𝐋
+Accidentally deleted data in Oracle SQL? Here's a quick guide to recover it using flashback queries 
+𝟏. 𝐄𝐧𝐚𝐛𝐥𝐞 𝐑𝐨𝐰 𝐌𝐨𝐯𝐞𝐦𝐞𝐧𝐭:
+Ensure row movement is enabled before using flashback queries:
+ALTER TABLE <YOUR_TABLE> ENABLE ROW MOVEMENT;
+𝟐. 𝐅𝐥𝐚𝐬𝐡𝐛𝐚𝐜𝐤 𝐓𝐚𝐛𝐥𝐞:
+Restore data to a specific timestamp using FLASHBACK TABLE:
+FLASHBACK TABLE <YOUR_TABLE> TO TIMESTAMP (SYSTIMESTAMP - INTERVAL '15' MINUTE);
+𝟑. 𝐑𝐞𝐭𝐫𝐢𝐞𝐯𝐞 𝐃𝐚𝐭𝐚 𝐚𝐬 𝐨𝐟 𝐓𝐢𝐦𝐞𝐬𝐭𝐚𝐦𝐩:
+Retrieve data as it was at a certain timestamp:
+SELECT * FROM <YOUR_TABLE> 
+AS OF TIMESTAMP (SYSTIMESTAMP - INTERVAL '15' MINUTE);
+𝟒. 𝐔𝐧𝐝𝐨 𝐑𝐞𝐭𝐞𝐧𝐭𝐢𝐨𝐧 𝐓𝐢𝐦𝐞:
+Keep in mind the undo retention time, which determines how far back you can flashback. 
+SELECT value AS undo_retention_seconds
+FROM v$parameter
+WHERE name = 'undo_retention';
+Adjust this setting if needed:
+ALTER SYSTEM SET UNDO_RETENTION = 3600; -- 1 hour in seconds
+𝟓. 𝐓𝐫𝐮𝐧𝐜𝐚𝐭𝐞𝐝 𝐃𝐚𝐭𝐚 𝐂𝐨𝐧𝐬𝐢𝐝𝐞𝐫𝐚𝐭𝐢𝐨𝐧:
+Unfortunately, truncated data is not retrievable using flashback queries. Always ensure data backups and take caution with TRUNCATE operations.

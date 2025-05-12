@@ -1,0 +1,49 @@
+DECLARE
+    CURSOR cAreaInfo IS SELECT * FROM EMOB.AREA_INFO;
+
+    TYPE rec_area_info IS RECORD
+    (
+        AREA_CODE          PLS_INTEGER,
+        AREA_SHORT_NAME    VARCHAR2 (3 BYTE),
+        AREA_NAME          VARCHAR2 (30 BYTE),
+        RECORD_STATUS      VARCHAR2 (1 BYTE)
+    );
+
+    rectyp_area_info   rec_area_info;
+
+    vAreaInfoType      EMOB.AREA_INFO%ROWTYPE;
+BEGIN
+    OPEN cAreaInfo;
+
+    LOOP
+        FETCH cAreaInfo INTO vAreaInfoType;
+
+        EXIT WHEN cAreaInfo%NOTFOUND;
+
+        DBMS_OUTPUT.put_line (vAreaInfoType.AREA_CODE);
+    END LOOP;
+
+    CLOSE cAreaInfo;
+
+    rectyp_area_info.AREA_CODE := 105;
+
+    -- Use another variable to store the result
+    SELECT AREA_CODE,
+           AREA_SHORT_NAME,
+           AREA_NAME,
+           RECORD_STATUS
+      INTO rectyp_area_info
+      FROM EMOB.AREA_INFO
+     WHERE AREA_CODE = rectyp_area_info.AREA_CODE;
+
+    DBMS_OUTPUT.put_line ('ShortName: ' || rectyp_area_info.AREA_SHORT_NAME);
+EXCEPTION
+    WHEN NO_DATA_FOUND
+    THEN
+        DBMS_OUTPUT.put_line (
+            'No data found for AREA_CODE ' || rectyp_area_info.AREA_CODE);
+    WHEN OTHERS
+    THEN
+        DBMS_OUTPUT.put_line (
+            'An error occurred: ' || SQLCODE || ' - ' || SQLERRM);
+END;

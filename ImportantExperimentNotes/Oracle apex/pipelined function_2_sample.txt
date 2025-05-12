@@ -1,0 +1,270 @@
+
+Sample 1-----------------
+
+    FUNCTION FUN_GL_BALANCE_BRANCH_DATE (P_BRANCH_ID IN EBEK.STTRNDTL.COMPCODE%TYPE,
+                                     P_SAMITY_ID IN EBEK.STTRNDTL.BRANCD%TYPE,
+                                     P_GLAC_ID   IN EBEK.MB_GLAC_MST.GLAC_ID%TYPE,
+                                     P_FROM_DATE IN VARCHAR2,
+                                     P_TO_DATE   IN VARCHAR2) 
+    RETURN GL_BALANCE_BRANCH_DATE_TB  PIPELINED
+    IS
+        RETURN_REC     GL_BALANCE_BRANCH_DATE_TB := GL_BALANCE_BRANCH_DATE_TB (NULL, NULL,NULL,NULL,NULL,NULL, NULL,NULL,NULL,NULL);
+        IDX            NUMBER := 0;
+        V_GL_NATURE EBEK.MB_GLAC_MST.GL_NATURE%TYPE;
+        V_GLAC_CODE EBEK.MB_GLAC_MST.GLAC_CODE%TYPE;
+        V_OPENING_BALANCE NUMBER;
+        V_CREDIT_OPENING_BALANCE NUMBER;
+        V_DEBIT_OPENING_BALANCE NUMBER;
+        
+        
+    BEGIN
+    BEGIN
+    SELECT  b.GLAC_CODE,b.GL_NATURE 
+    INTO V_GLAC_CODE,V_GL_NATURE
+    FROM EBEK.MB_GLAC_MST b where b.GLAC_ID=P_GLAC_ID;
+    EXCEPTION
+    WHEN OTHERS THEN NULL;
+    
+    END;
+   
+FOR GL_OPENING_BALANCE IN (select 'Opening Balance ' Naration,SUM(CASE
+       WHEN V_GL_NATURE='C' THEN NVL(CR_AMT_LC,0) - NVL(DR_AMT_LC,0)
+       ELSE NVL(DR_AMT_LC,0) - NVL(CR_AMT_LC,0)
+       END) OPENING_BALANCE  from ebek.MB_GL_SUMMARY 
+where BRANCH_CODE=NVL(P_SAMITY_ID,BRANCH_CODE) 
+AND DOC_DATE<P_FROM_DATE 
+AND  GLAC_ID = P_GLAC_ID
+AND CBS_BRANCH_CODE=NVL(P_BRANCH_ID,CBS_BRANCH_CODE))
+LOOP
+            V_OPENING_BALANCE:=GL_OPENING_BALANCE.OPENING_BALANCE;
+
+            IF V_GL_NATURE='C' THEN
+            V_CREDIT_OPENING_BALANCE:=GL_OPENING_BALANCE.OPENING_BALANCE;
+            V_DEBIT_OPENING_BALANCE:=0;
+            ELSE
+            V_CREDIT_OPENING_BALANCE:=0;
+            V_DEBIT_OPENING_BALANCE:=GL_OPENING_BALANCE.OPENING_BALANCE;
+            END IF;
+END LOOP;
+
+  FOR X IN (
+   SELECT      DOCTDATE,
+               DOCNUMBR,
+               tran_id,
+               NARATION,
+               ACCTCODE,
+               Credit_Amount,
+               Debit_Amount,
+SUM (BALANCE_AMOUNT) OVER (PARTITION BY ACCTCODE ORDER BY tran_id) Balance
+               FROM(
+    SELECT TO_DATE(P_FROM_DATE) DOCTDATE,NULL DOCNUMBR,.5 tran_id, 'Opening Balance ' Naration,
+    P_GLAC_ID ACCTCODE,NULL CBS_BRANCH_CODE,NULL SAMITY_CODE,V_CREDIT_OPENING_BALANCE  Credit_Amount, 
+    V_DEBIT_OPENING_BALANCE  Debit_Amount,
+    CASE WHEN V_CREDIT_OPENING_BALANCE=0 THEN V_DEBIT_OPENING_BALANCE ELSE V_CREDIT_OPENING_BALANCE
+    END BALANCE_AMOUNT
+    FROM DUAL   
+    UNION ALL           
+    SELECT     a.DOCTDATE,
+               a.DOCNUMBR,
+               a.tran_id,
+               a.NARATION,
+               a.ACCTCODE,
+               a.COMPCODE CBS_BRANCH_CODE,
+               a.BRANCD SAMITY_CODE,
+               CASE WHEN DBCRCODE='C' THEN  a.AMOUNT ELSE 0 END Credit_Amount,
+               CASE WHEN DBCRCODE='D' THEN  a.AMOUNT ELSE 0 END Debit_Amount,
+               CASE WHEN V_GL_NATURE='C' AND DBCRCODE='C' THEN a.AMOUNT
+                    WHEN V_GL_NATURE='C' AND DBCRCODE='D' THEN -a.AMOUNT
+                    WHEN V_GL_NATURE='D' AND DBCRCODE='D' THEN a.AMOUNT
+                    ELSE -a.AMOUNT
+               END BALANCE_AMOUNT
+          FROM (SELECT * FROM   EBEK.STTRNDTL a
+WHERE  DOCTDATE BETWEEN P_FROM_DATE AND P_TO_DATE 
+AND a.ACCTCODE = P_GLAC_ID
+AND A.REF_DOCNUM IS NULL ORDER BY DOCTDATE ) a 
+WHERE a.COMPCODE=NVL(P_BRANCH_ID,a.COMPCODE) AND a.BRANCD=NVL(P_SAMITY_ID,a.BRANCD)) 
+--WHERE CBS_BRANCH_CODE=NVL(P_BRANCH_ID,CBS_BRANCH_CODE)
+--AND SAMITY_CODE=NVL(P_SAMITY_ID,SAMITY_CODE)
+    )
+            LOOP
+            IDX := IDX + 1;
+            RETURN_REC.EXTEND (1);
+            RETURN_REC (IDX).SL_NO:=IDX;
+            RETURN_REC (IDX).ACCTCODE:=X.ACCTCODE;
+            RETURN_REC (IDX).DOCTDATE:=X.DOCTDATE;
+            RETURN_REC (IDX).DOCNUMBR:=X.DOCNUMBR;
+            RETURN_REC (IDX).NARATION:=X.NARATION;
+            RETURN_REC (IDX).CREDIT_AMOUNT:=X.CREDIT_AMOUNT;
+            RETURN_REC (IDX).DEBIT_AMOUNT:=X.DEBIT_AMOUNT;
+            RETURN_REC (IDX).BALANCE:=X.BALANCE;
+            
+            END LOOP;
+         
+                    BEGIN
+            FOR J IN 1 .. IDX
+            LOOP
+                PIPE ROW (RETURN_REC (J));
+            END LOOP;
+        EXCEPTION
+            WHEN NO_DATA_FOUND
+            THEN
+                NULL;
+        END;
+
+        RETURN;
+   END;
+   ===============
+   ===============
+   Sample 2
+   --------------
+   --------------
+     FUNCTION account_statement_PIP (pactypeid    NUMBER,
+                                   pacid        NUMBER,
+                                   pfromdate    VARCHAR2,
+                                   ptodate      VARCHAR2)
+      RETURN type_pip_acstat
+      PIPELINED
+   --AUTHID DEFINER
+   IS
+      TYPE Record2 IS RECORD
+      (
+         doc_date        VARCHAR2 (200),
+         TRan_CODE       VARCHAR2 (2),
+         NARATION        VARCHAR2 (50),
+         AC_ID           NUMBER,
+         AC_TYPE_ID      NUMBER,
+         Credit_Amount   NUMBER,
+         Debit_Amount    NUMBER,
+         Balance         NUMBER,
+         tot_credit      NUMBER,
+         tot_debit       NUMBER
+      );
+
+      TYPE type_acc IS TABLE OF Record2
+         INDEX BY BINARY_INTEGER;
+
+
+
+      l_acc   type_acc;
+   BEGIN
+      SELECT TO_CHAR (doc_date, 'DD/MM/RR') doc_date,
+             NULL || TRan_CODE TRan_CODE,
+             NULL || INITCAP (NARATION) NARATION,
+             AC_ID,
+             AC_TYPE_ID,
+             Credit_Amount,
+             Debit_Amount,
+             SUM (AMOUNT)
+                OVER (PARTITION BY AC_TYPE_ID, AC_ID ORDER BY tran_id)
+                Balance,
+             SUM (Credit_Amount) OVER (PARTITION BY AC_ID) tot_credit,
+             SUM (Debit_Amount) OVER (PARTITION BY AC_ID) tot_debit
+        BULK COLLECT INTO l_acc
+        FROM (  SELECT .5 tran_id,
+                       MAX (doc_date) doc_date,
+                       ' ' TRAN_CODE,
+                       'Balance Brought Forward' NARATION,
+                       AC_ID,
+                       AC_TYPE_ID,
+                       NVL (
+                          SUM (DECODE (drcr_code, 'C', NVL (TRAN_AMT_LC, 0))),
+                          0)
+                          Credit_Amount,
+                       NVL (
+                          SUM (DECODE (drcr_code, 'D', NVL (TRAN_AMT_LC, 0))),
+                          0)
+                          Debit_Amount,
+                       NVL (
+                          SUM (
+                             DECODE (drcr_code,
+                                     'C', NVL (TRAN_AMT_LC, 0),
+                                     'D', NVL (-TRAN_AMT_LC, 0))),
+                          0)
+                          Amount
+                  FROM (SELECT AC_ID,
+                               AC_TYPE_ID,
+                               doc_date,
+                               drcr_code,
+                               tran_amt_lc
+                          FROM emob.MB_TRANSACTION_DAILY
+                         WHERE     AC_TYPE_ID = pactypeid
+                               AND AC_ID = pacid
+                               AND DOC_DATE < TO_DATE (pfromdate, 'DD/MM/RRRR')
+                               --   AND REV_TRAN_ID IS NULL
+                               AND BAL_FLAG = 'Y'
+                        UNION ALL
+                        SELECT AC_ID,
+                               AC_TYPE_ID,
+                               DOC_DATE,
+                               drcr_code,
+                               tran_amt_lc
+                          FROM emob.MB_TRANSACTION_DTL A
+                         WHERE     AC_TYPE_ID = pactypeid
+                               AND AC_ID = pacid
+                               AND DOC_DATE < TO_DATE (pfromdate, 'DD/MM/RRRR')
+                               -- AND REV_TRAN_ID IS NULL
+                               AND BAL_FLAG = 'Y')
+              GROUP BY AC_ID, AC_TYPE_ID
+              UNION ALL
+              SELECT tran_id,
+                     a.doc_date,
+                     a.TRan_CODE,
+                     a.NARATION,
+                     a.AC_ID,
+                     a.AC_TYPE_ID,
+                     DECODE (drcr_code, 'C', a.TRAN_AMT_LC, 0) Credit_Amount,
+                     DECODE (drcr_code, 'D', a.TRAN_AMT_LC, 0) Debit_Amount,
+                     DECODE (drcr_code,
+                             'C', a.TRAN_AMT_LC,
+                             'D', -TRAN_AMT_LC)
+                        Amount
+                FROM emob.MB_TRANSACTION_DAILY a
+               WHERE     AC_TYPE_ID = pactypeid
+                     AND AC_ID = pacid
+                     AND a.DOC_DATE BETWEEN TO_DATE (pfromdate, 'DD/MM/RRRR')
+                                        AND TO_DATE (ptodate, 'DD/MM/RRRR')
+                     --  AND A.REV_TRAN_ID IS NULL
+                     AND A.BAL_FLAG = 'Y'
+              UNION ALL
+              SELECT tran_id,
+                     a.doc_date,
+                     a.TRan_CODE,
+                     a.NARATION,
+                     a.AC_ID,
+                     a.AC_TYPE_ID,
+                     DECODE (drcr_code, 'C', a.TRAN_AMT_LC, 0) Credit_Amount,
+                     DECODE (drcr_code, 'D', a.TRAN_AMT_LC, 0) Debit_Amount,
+                     DECODE (drcr_code,
+                             'C', a.TRAN_AMT_LC,
+                             'D', -TRAN_AMT_LC)
+                        Amount
+                FROM emob.MB_TRANSACTION_DTL a
+               WHERE     AC_TYPE_ID = pactypeid
+                     AND AC_ID = pacid
+                     AND a.DOC_DATE BETWEEN TO_DATE (pfromdate, 'DD/MM/RRRR')
+                                        AND TO_DATE (ptodate, 'DD/MM/RRRR')
+                     --  AND A.REV_TRAN_ID IS NULL
+                     AND A.BAL_FLAG = 'Y');
+
+      -- FETCH rows_in BULK COLLECT INTO l_acc LIMIT 100;
+
+
+
+      FOR l_row IN 1 .. l_acc.COUNT
+      LOOP
+         PIPE ROW (pip_acstat (l_acc (l_row).doc_date,
+                               l_acc (l_row).TRan_CODE,
+                               l_acc (l_row).NARATION,
+                               l_acc (l_row).AC_ID,
+                               l_acc (l_row).AC_TYPE_ID,
+                               l_acc (l_row).Credit_Amount,
+                               l_acc (l_row).Debit_Amount,
+                               l_acc (l_row).Balance,
+                               l_acc (l_row).tot_credit,
+                               l_acc (l_row).tot_debit));
+         EXIT WHEN l_acc.COUNT = 0;
+      END LOOP;
+
+
+      RETURN;
+   END;

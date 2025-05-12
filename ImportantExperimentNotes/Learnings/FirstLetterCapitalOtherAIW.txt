@@ -1,0 +1,53 @@
+WITH
+    inData AS (SELECT 'Isabella LuciEnnE Stormrider hAFE' str FROM DUAL),
+    inRows
+    AS
+        (    SELECT 1                               AS tId,
+                    LEVEL                           AS rId,
+                    TRIM (REGEXP_SUBSTR (str,
+                                         '([A-Za-z0-9])+',
+                                         1,
+                                         LEVEL))    AS str
+               FROM inData
+         CONNECT BY INSTR (str,
+                           ' ',
+                           1,
+                           LEVEL - 1) > 0)
+  SELECT tId,
+         LISTAGG (UPPER (SUBSTR (str, 1, 1)) || SUBSTR (str, 2), ' ')
+             WITHIN GROUP (ORDER BY rId)    AS InitCapFirstLetter
+    FROM inRows
+GROUP BY tId;
+
+/* Formatted on 11/6/2024 3:58:49 PM (QP5 v5.360) */
+CREATE OR REPLACE FUNCTION fncCapFirstLetterOnly (pInvalue VARCHAR2)
+    RETURN VARCHAR2
+IS
+    vRetrunSentence   VARCHAR2 (1024);
+BEGIN
+    WITH
+        inData AS (SELECT pInvalue str FROM DUAL),
+        inRows
+        AS
+            (    SELECT 1                               AS tId,
+                        LEVEL                           AS rId,
+                        TRIM (REGEXP_SUBSTR (str,
+                                             '([A-Za-z0-9])+',
+                                             1,
+                                             LEVEL))    AS str
+                   FROM inData
+             CONNECT BY INSTR (str,
+                               ' ',
+                               1,
+                               LEVEL - 1) > 0)
+    SELECT LISTAGG (UPPER (SUBSTR (str, 1, 1)) || SUBSTR (str, 2), ' ')
+               WITHIN GROUP (ORDER BY rId)    AS InitCapFirstLetter
+      INTO vRetrunSentence
+      FROM inRows;
+
+    RETURN vRetrunSentence;
+END;
+
+SELECT fncCapFirstLetterOnly (
+           'the Night was calm, but the Storm bREWING in the diSTAnce hINTed at chAOs to come.')    RESULT
+  FROM DUAL;

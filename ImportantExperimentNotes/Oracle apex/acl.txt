@@ -1,0 +1,36 @@
+-------------run this script using sys user-----------
+
+
+/* Formatted on 14/Sep/21 3:19:00 PM (QP5 v5.313) */
+BEGIN
+    DBMS_NETWORK_ACL_ADMIN.create_acl (acl           => 'APP_API.xml',
+                                       description   => 'ACL for APP API',
+                                       principal     => 'PUBLIC',
+                                       is_grant      => TRUE,
+                                       privilege     => 'connect',
+                                       start_date    => SYSTIMESTAMP,
+                                       end_date      => NULL);
+
+    COMMIT;
+END;
+/
+
+BEGIN
+    DBMS_NETWORK_ACL_ADMIN.add_privilege (acl          => 'APP_API.xml',
+                                          principal    => 'PUBLIC',
+                                          is_grant     => TRUE,
+                                          privilege    => 'connect',
+                                          position     => NULL,
+                                          start_date   => NULL,
+                                          end_date     => NULL);
+
+    COMMIT;
+END;
+/
+
+BEGIN
+    DBMS_NETWORK_ACL_ADMIN.assign_acl (acl    => 'APP_API.xml',
+                                       HOST   => '192.168.202.143');
+    COMMIT;
+END;
+/

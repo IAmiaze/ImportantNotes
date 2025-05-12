@@ -1,0 +1,13 @@
+DECLARE
+    vResponse    CLOB;
+    vErrorflag   VARCHAR2 (100);
+    Verrormsg    VARCHAR2 (100);
+BEGIN
+    EMOB.GLOBAL_CBS_ALL_API.CUST_INQUIRY_DTL_API (
+        pAcNo           => '2202718366001',
+        pResponseJson   => vResponse,
+        pErrorFlag      => vErrorflag,
+        pErrorMsg       => Verrormsg);
+
+        dbms_output.put_line(vResponse);
+END;

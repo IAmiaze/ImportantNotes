@@ -1,0 +1,4 @@
+ORDS/OUTH2.0
+---------------
+https://content.dsp.co.uk/apex/web-services-part-1 
+https://content.dsp.co.uk/apex/ordsoauth2-web-services-in-apex-part-2

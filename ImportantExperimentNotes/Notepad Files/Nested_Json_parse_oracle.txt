@@ -1,0 +1,154 @@
+/* Formatted on 6/25/2024 11:31:58 AM (QP5 v5.360) */
+SELECT *
+  FROM JSON_TABLE (
+           '{
+	"type": "Campaign",
+	"currentStatus": "Active",
+	"id": "206",
+	"createdAt": "1488438112",
+	"createdBy": "370",
+	"depth": "complete",
+	"folderId": "1428",
+	"name": "Car Loan",
+	"permissions": [
+		"Retrieve",
+		"Delete",
+		"Update",
+		"Activate"
+	],
+	"updatedAt": "1488457362",
+	"updatedBy": "372",
+	"elements": [
+		{
+			"type": "CampaignAddToProgramBuilderAction",
+			"id": "1197",
+			"name": "Create Lead",
+			"memberCount": "0",
+			"outputTerminals": [
+				{
+					"type": "CampaignOutputTerminal",
+					"id": "914",
+					"connectedId": "1198",
+					"connectedType": "CampaignWaitAction",
+					"terminalType": "out"
+				}
+			],
+			"position": {
+				"type": "Position",
+				"x": "238",
+				"y": "261"
+			},
+			"programId": "131",
+			"programStepId": "866"
+		},
+		{
+			"type": "CampaignWaitAction",
+			"id": "1198",
+			"name": "Wait",
+			"memberCount": "0",
+			"position": {
+				"type": "Position",
+				"x": "93",
+				"y": "399"
+			},
+			"waitFor": "86400"
+		},
+		{
+			"type": "CampaignInput",
+			"id": "20000835",
+			"outputTerminals": [
+				{
+					"type": "CampaignOutputTerminal",
+					"id": "20000835",
+					"connectedId": "1197",
+					"connectedType": "CampaignAddToProgramBuilderAction",
+					"terminalType": "system"
+				}
+			],
+			"position": {
+				"type": "Position",
+				"x": "20",
+				"y": "20"
+			},
+			"source": {
+				"type": "Form",
+				"currentStatus": "Draft",
+				"id": "156",
+				"createdAt": "1487853298",
+				"createdBy": "372",
+				"depth": "minimal",
+				"folderId": "1417",
+				"name": "FB_testing",
+				"permissions": [
+					"Retrieve",
+					"Delete",
+					"Update"
+				],
+				"updatedAt": "1488446223",
+				"updatedBy": "370"
+			}
+		}
+	],
+	"isReadOnly": "false",
+	"runAsUserId": "372",
+	"actualCost": "2500.00",
+	"budgetedCost": "0.00",
+	"campaignCategory": "contact",
+	"campaignType": "GB",
+	"crmId": "",
+	"endAt": "1496289599",
+	"fieldValues": [
+		{
+			"type": "FieldValue",
+			"id": "8",
+			"value": "test"
+		},
+		{
+			"type": "FieldValue",
+			"id": "9",
+			"value": "APAC"
+		},
+		{
+			"type": "FieldValue",
+			"id": "11",
+			"value": ""
+		},
+		{
+			"type": "FieldValue",
+			"id": "12",
+			"value": "Direct Mail Campaigns"
+		},
+		{
+			"type": "FieldValue",
+			"id": "13",
+			"value": ""
+		}
+	],
+	"firstActivation": "1488439250",
+	"isEmailMarketingCampaign": "false",
+	"isIncludedInROI": "true",
+	"isMemberAllowedReEntry": "false",
+	"isSyncedWithCRM": "true",
+	"memberCount": "1",
+	"product": "Automobiles",
+	"region": "LATAM",
+	"startAt": "1488430800"
+}',
+           '$'
+           COLUMNS atype VARCHAR2 (50) PATH '$.type',
+           currentStatus VARCHAR2 (50) PATH '$.currentStatus',
+           id NUMBER PATH '$.id',
+           createdAt VARCHAR2 (50) PATH '$.createdAt',
+           createdBy NUMBER PATH '$.createdBy',
+           DEPTH VARCHAR2 (50) PATH '$.depth',
+           folderId NUMBER PATH '$.folderId',
+           name VARCHAR2 (50) PATH '$.name',
+           updatedAt VARCHAR2 (50) PATH '$.updatedAt',
+           updatedBy NUMBER PATH '$.updatedBy',
+           actualCost NUMBER (15, 4) PATH '$.actualCost',
+           NESTED PATH '$.fieldValues[*]'
+               COLUMNS (fvType VARCHAR2 (50) PATH '$.type',
+                        fvId NUMBER PATH '$.id',
+                        fvvalue VARCHAR2 (50) PATH '$.value'),
+           NESTED PATH '$.elements[*]'
+               COLUMNS (ElType VARCHAR2 (50) PATH '$.type'))

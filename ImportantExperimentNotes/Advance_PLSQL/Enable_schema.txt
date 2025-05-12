@@ -1,0 +1,9 @@
+BEGIN
+  ORDS.ENABLE_SCHEMA(
+    p_enabled      => TRUE,
+    p_schema       => 'your_schema',
+    p_url_mapping  => 'your_schema',
+    p_auto_rest_auth => TRUE
+  );
+END;
+/

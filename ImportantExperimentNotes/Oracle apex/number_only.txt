@@ -1,0 +1,87 @@
+function onlyNumberKey(evt) {
+    var ASCIICode = (evt.which) ? evt.which : evt.keyCode
+    if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57))
+        return false; 
+
+    return true;
+}
+
+onkeypress="return onlyNumberKey(event)"
+
+
+
+onkeypress= validateNumber(event,this)
+
+
+
+
+function validateNumber(event, item) {
+  var charCode = event.which ? event.which : event.keyCode;
+  var value = item.value;
+  var inputValue = item.value + event.key;
+  if (charCode === 46) {
+    // Allow period (.) character
+    if (value.indexOf(".") !== -1) {
+      // Only allow one period (.) character
+      event.preventDefault();
+    }
+  } else if (charCode > 31 && (charCode < 48 || charCode > 57)) {
+    event.preventDefault();
+    var errorMsg = "Please enter a valid number.";
+    item.focus();
+    //item.value = "";
+    item.setCustomValidity(errorMsg);
+    item.reportValidity();
+  } 
+  else if (inputValue.length > 14) {
+    event.preventDefault();
+    var errorMsg = "Only 14 digits are allowed,Length found:"+inputValue.length;
+    item.focus();
+    item.setCustomValidity(errorMsg);
+    item.reportValidity();
+  } 
+  else {
+    if (value !== "" && isNaN(value)) {
+      var errorMsg = "Please enter a valid number.";
+      item.focus();
+      //item.value = "";
+      item.setCustomValidity(errorMsg);
+      item.reportValidity();
+    } else {
+      apex.message.clearErrors();
+      item.setCustomValidity("");
+    }
+  }
+}
+function validateText(event, item) {
+  var charCode = event.which ? event.which : event.keyCode;
+  var inputValue = item.value + event.key;
+  if ((charCode >= 48 && charCode <= 57) || !/^[a-zA-Z0-9\s\\/]*$/.test(event.key) || inputValue.length > 14) {
+    event.preventDefault();
+    var errorMsg = "Please enter text only, up to 14 characters.";
+    item.focus();
+    item.setCustomValidity(errorMsg);
+    item.reportValidity();
+  } else {
+    apex.message.clearErrors();
+    item.setCustomValidity("");
+  }
+}
+
+
+function onlyNumberKey(evt, item) {
+    var ASCIICode = (evt.which) ? evt.which : evt.keyCode;
+    var errorMsg = "Input value must be numeric.";
+    if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57)) {
+        item.focus();
+        //item.value = "";
+        item.setCustomValidity(errorMsg);
+        item.reportValidity();
+        return false; 
+    } else {
+        item.setCustomValidity(""); // Hide the custom validation message
+        item.reportValidity();
+    }
+    return true;
+}
+

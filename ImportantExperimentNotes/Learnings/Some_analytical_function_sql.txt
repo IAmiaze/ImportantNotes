@@ -1,0 +1,17 @@
+---- Use of Lead function which like a inner join in a Table----
+
+SELECT COUNT (1), TranStatHr, TranEndHr,EFFECTIVE_DATE,EXPIRE_DATE
+    FROM (SELECT START_TIME                    TranStatHr,
+                 END_TIME                      TranEndHr,
+                 EFFECTIVE_DATE,
+                 NVL (LEAD (EFFECTIVE_DATE - 1) OVER (ORDER BY EFFECTIVE_DATE),
+                      TRUNC (SYSDATE) + 500)    EXPIRE_DATE
+            FROM EMOB.MB_GLOBAL_TRAN_HOUR
+           WHERE NVL (ACTIVE_FLAG, 'N') = 'Y' AND TRAN_TYPE = 'O')
+   WHERE TRUNC (SYSDATE) BETWEEN EFFECTIVE_DATE AND EXPIRE_DATE
+GROUP BY TranStatHr, TranEndHr,EFFECTIVE_DATE,EXPIRE_DATE;
+
+
+* Details of Query : Here EMOB.MB_GLOBAL_TRAN_HOUR is a Table which store Transaction and Operation hour setup Data ,It has EFFECTIVE_DATE ,
+		     So user can set multiple Transaction Hour with effective date.
+	             in this query its Ensure Last Setup Effective date and Previous effective date Expire date.

@@ -1,0 +1,20 @@
+DECLARE
+    vRegionID   NUMBER;
+BEGIN
+    SELECT region_ID
+      INTO vRegionID
+      FROM apex_application_page_regions
+     WHERE     static_id = 'USER_LIST'
+           AND page_id = :APP_PAGE_ID
+           AND application_id = :APP_ID;
+
+    BEGIN
+        APEX_IR.RESET_REPORT (p_page_id     => :APP_PAGE_ID,
+                              p_region_id   => vRegionID,
+                              p_report_id   => NULL);
+    END;
+EXCEPTION
+    WHEN OTHERS
+    THEN
+        NULL;
+END;

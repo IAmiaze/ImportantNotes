@@ -1,0 +1,33 @@
+DECLARE
+    TYPE t_best_employees IS TABLE OF VARCHAR2 (100)
+        INDEX BY VARCHAR2 (100);
+
+    l_best_employees   t_best_employees;
+
+    TYPE t_employees IS TABLE OF VARCHAR2 (100);
+
+    l_employees        t_employees
+                           := t_employees ('Miaze',
+                                           'Akira',
+                                           'Jane',
+                                           'Smith');
+
+    l_status           VARCHAR2 (20);
+BEGIN
+    l_best_employees ('Miaze') := 'Miaze' ;
+    l_best_employees ('Akira') := 'Akira' ;
+
+    FOR i IN l_employees.FIRST .. l_employees.LAST
+    LOOP
+        IF l_best_employees.EXISTS (l_employees (i))
+        THEN
+            l_status := 'Best Employee';
+        ELSE
+            l_status := 'Regular';
+        END IF;
+
+        DBMS_OUTPUT.PUT_LINE (
+            'Employee: ' || l_employees (i) || ' - Status: ' || l_status);
+    END LOOP;
+END;
+/

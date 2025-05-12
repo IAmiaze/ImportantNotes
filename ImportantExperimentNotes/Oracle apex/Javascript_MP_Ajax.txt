@@ -1,0 +1,95 @@
+function CloseInputOTP() {
+    closeModal('INPUT_OTP');
+}
+
+var fileInputElem = document.getElementById('P3_FILE_UPLOAD');
+var fileIndex = 0;
+// builds A js ARRAY FROM LONG STRING
+function clob2Array(clob, size, array) {
+ loopCount = Math.floor(clob.length / size) + 1;
+ for (var i = 0; i < loopCount; i++) {
+   array.push(clob.slice(size * i, size * (i + 1)));
+ }
+ return array;
+}
+// converts binaryArray to base64 string
+function binaryArray2base64(int8Array) {
+ var data = "";
+ var bytes = new Uint8Array(int8Array);
+ var length = bytes.byteLength;
+ for (var i = 0; i < length; i++) {
+   data += String.fromCharCode(bytes[i]);
+ }
+ return btoa(data);
+}
+// a recursive function that calls itself to upload multiple files synchronously
+function uploadFile(pFileIndex) {
+ var file = fileInputElem.files[pFileIndex];
+ var reader = new FileReader();
+ reader.onload = (function(pFile) {
+   return function(e) {
+     if (pFile) {
+       var base64 = binaryArray2base64(e.target.result);
+       var f01Array = [];
+       f01Array = clob2Array(base64, 30000, f01Array);
+       apex.server.process(
+         'UPLOAD_FILE',
+         {
+           x01: file.name,
+           x02: file.type,
+           f01: f01Array
+         },
+         {
+           dataType: 'json',
+           success: function(data) {
+             if (data.result == 'success') {
+               fileIndex++;
+               if (fileIndex < fileInputElem.files.length) {
+                 // start uploading the next file
+                 uploadFile(fileIndex);
+               } else {
+                 // all files have been uploaded at this point
+                 spinner.stop();
+                 fileInputElem.value = '';
+                 $('#report').trigger('apexrefresh');
+               }
+             } else {
+               alert('Oops! Something went terribly wrong. Please try again or contact your application administrator.');
+             }
+           }
+         }
+       );
+     }
+   }
+ })(file);
+ reader.readAsArrayBuffer(file);
+}
+// variables for spin.js
+var spinner;
+var spinTargetElem = document.getElementById('wwvFlowForm');
+var spinOptions = {
+ lines: 13
+, length: 28
+, width: 14
+, radius: 42
+, scale: 1
+, corners: 1
+, color: '#000'
+, opacity: 0.25
+, rotate: 0
+, direction: 1
+, speed: 1
+, trail: 60
+, fps: 20
+, zIndex: 2e9
+, className: 'spinner'
+, top: '50%'
+, left: '50%'
+, shadow: false
+, hwaccel: false
+, position: 'absolute'}
+
+--------Execute javascript---
+spinner = new Spinner(spinOptions).spin(spinTargetElem);
+fileIndex = 0;
+uploadFile(fileIndex);

@@ -1,0 +1,119 @@
+CREATE OR REPLACE  FUNCTION AMOUNT_IN_WORDS(
+    p_amount    NUMBER,
+    pTranslate  CHAR
+)
+RETURN VARCHAR2
+IS
+    -- English Words
+    TYPE t_string_table IS TABLE OF VARCHAR2(255);
+    v_units_en  t_string_table := t_string_table('Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine');
+    v_tens_en   t_string_table := t_string_table('', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety');
+    v_teens_en  t_string_table := t_string_table('Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen');
+    v_places_en t_string_table := t_string_table('Crore', 'Lakh', 'Thousand', 'Hundred', '');
+
+    -- Bangla Words
+    v_units_bn  t_string_table := t_string_table('শূন্য', 'এক', 'দুই', 'তিন', 'চার', 'পাঁচ', 'ছয়', 'সাত', 'আট', 'নয়');
+    v_tens_bn   t_string_table := t_string_table('', '', 'বিশ', 'ত্রিশ', 'চল্লিশ', 'পঞ্চাশ', 'ষাট', 'সত্তর', 'আশি', 'নব্বই');
+    v_teens_bn  t_string_table := t_string_table('দশ', 'এগারো', 'বারো', 'তেরো', 'চৌদ্দ', 'পনেরো', 'ষোলো', 'সতেরো', 'আঠারো', 'ঊনিশ');
+    v_places_bn t_string_table := t_string_table('কোটি', 'লক্ষ', 'হাজার', 'শত', '');
+
+    -- Variables for selected language
+    v_units      t_string_table;
+    v_tens       t_string_table;
+    v_teens      t_string_table;
+    v_places     t_string_table;
+
+    -- Temporary variables for calculations
+    v_integer_part NUMBER;
+    v_decimal_part NUMBER;
+    v_words        VARCHAR2(4000);
+
+    -- Recursive function to get words for a number
+    FUNCTION get_words(p_num NUMBER) RETURN VARCHAR2 IS
+        v_result      VARCHAR2(4000) := '';
+        v_remaining   NUMBER := p_num; -- Local copy to modify
+        v_crores      NUMBER;
+        v_lakhs       NUMBER;
+        v_thousands   NUMBER;
+        v_hundreds    NUMBER;
+        v_tens_units  NUMBER;
+    BEGIN
+        IF v_remaining >= 10000000 THEN
+            v_crores := FLOOR(v_remaining / 10000000);
+            v_result := v_result || get_words(v_crores) || ' ' || v_places(1) || ' ';
+            v_remaining := MOD(v_remaining, 10000000);
+        END IF;
+
+        IF v_remaining >= 100000 THEN
+            v_lakhs := FLOOR(v_remaining / 100000);
+            v_result := v_result || get_words(v_lakhs) || ' ' || v_places(2) || ' ';
+            v_remaining := MOD(v_remaining, 100000);
+        END IF;
+
+        IF v_remaining >= 1000 THEN
+            v_thousands := FLOOR(v_remaining / 1000);
+            v_result := v_result || get_words(v_thousands) || ' ' || v_places(3) || ' ';
+            v_remaining := MOD(v_remaining, 1000);
+        END IF;
+
+        IF v_remaining >= 100 THEN
+            v_hundreds := FLOOR(v_remaining / 100);
+            v_result := v_result || get_words(v_hundreds) || ' ' || v_places(4) || ' ';
+            v_remaining := MOD(v_remaining, 100);
+        END IF;
+
+        IF v_remaining >= 20 THEN
+            v_tens_units := FLOOR(v_remaining / 10);
+            v_result := v_result || v_tens(v_tens_units) || ' ';
+            v_remaining := MOD(v_remaining, 10);
+        END IF;
+
+        IF v_remaining >= 10 THEN
+            v_result := v_result || v_teens(v_remaining - 9) || ' ';
+            v_remaining := 0;
+        END IF;
+
+        IF v_remaining > 0 THEN
+            v_result := v_result || v_units(v_remaining) || ' ';
+        END IF;
+
+        RETURN TRIM(v_result);
+    END;
+
+BEGIN
+    -- Select language based on pTranslate
+    IF UPPER(pTranslate) = 'B' THEN
+        v_units := v_units_bn;
+        v_tens := v_tens_bn;
+        v_teens := v_teens_bn;
+        v_places := v_places_bn;
+    ELSE
+        v_units := v_units_en;
+        v_tens := v_tens_en;
+        v_teens := v_teens_en;
+        v_places := v_places_en;
+    END IF;
+
+    v_integer_part := TRUNC(p_amount);
+    v_decimal_part := ROUND((p_amount - v_integer_part) * 100);
+
+    -- Convert the integer part to words
+    v_words := get_words(v_integer_part);
+
+    -- Handle paisa (decimal part)
+    IF v_decimal_part > 0 THEN
+        IF UPPER(pTranslate) = 'B' THEN
+            v_words := v_words || ' এবং ' || get_words(v_decimal_part) || ' পয়সা';
+        ELSE
+            v_words := v_words || ' and ' || get_words(v_decimal_part) || ' Paisa';
+        END IF;
+    END IF;
+
+    -- Add Taka Only or টাকা মাত্র based on the language
+    IF UPPER(pTranslate) = 'B' THEN
+        RETURN TRIM(v_words || ' টাকা মাত্র');
+    ELSE
+        RETURN TRIM(v_words || ' Taka Only');
+    END IF;
+END AMOUNT_IN_WORDS;
+/

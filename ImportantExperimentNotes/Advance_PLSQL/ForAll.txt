@@ -1,0 +1,20 @@
+DECLARE
+    TYPE numlist IS VARRAY (99999999) OF NUMBER;
+
+    vAcId   numlist := numlist ();
+
+    CURSOR c_account_ids IS SELECT AC_ID FROM EMOB.MB_ACCOUNT_MST;
+BEGIN
+    FOR account_rec IN c_account_ids
+    LOOP
+        vAcId.EXTEND;
+        vAcId (vAcId.LAST) := account_rec.AC_ID;
+    END LOOP;
+
+    FORALL i IN vAcId.FIRST .. vAcId.LAST
+        UPDATE EMOB.MB_ACCOUNT_MST
+           SET OPEN_FORM = 'WEB'
+         WHERE AC_ID = vAcId (i);
+END;
+/
+

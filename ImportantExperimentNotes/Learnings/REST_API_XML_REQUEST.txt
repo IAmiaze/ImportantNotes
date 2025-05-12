@@ -1,0 +1,26 @@
+/* Formatted on 2/19/2025 11:59:38 AM (QP5 v5.388) */
+DECLARE
+    l_output_xml     CLOB;
+    l_input_clob     CLOB;
+    l_body_to_clob   CLOB;
+    l_plain_text     VARCHAR2 (4000);
+BEGIN
+    BEGIN
+        l_body_to_clob := EMPTY_CLOB ();
+        DBMS_LOB.createtemporary (l_body_to_clob, TRUE);
+        l_input_clob := apex_web_service.blob2clobbase64 ( :body);
+        /*l_plain_text :=
+           UTL_RAW.cast_to_varchar2 (
+              UTL_ENCODE.base64_decode (UTL_RAW.cast_to_raw (l_body_to_clob)));
+        -- printing  received data
+        HTP.p (l_plain_text);*/
+        EMOB.GLOBAL_CBS_ALL_API.SEND_ACCOUNT_DETAILS (l_input_clob,
+                                                      l_output_xml);
+
+        HTP.p (l_output_xml);
+    EXCEPTION
+        WHEN OTHERS
+        THEN
+            HTP.p (SQLERRM);
+    END;
+END;

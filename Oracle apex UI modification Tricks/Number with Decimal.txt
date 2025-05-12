@@ -1,0 +1,7 @@
+$("#P209_VERIFY_AMOUNT").keypress(function(event){ 
+    event = (event) ? event : window.event;
+    if ( event.which != 0 && (event.which < 48 || event.which > 57) && (event.which != 46 || $(this).val().indexOf('.') != -1)){    
+       return false;
+    }
+    return true;
+});

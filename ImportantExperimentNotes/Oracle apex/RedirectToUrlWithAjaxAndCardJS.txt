@@ -1,0 +1,73 @@
+--AjaxCallBack---
+DECLARE
+    l_token  VARCHAR2(4000);
+    l_status NUMBER;
+    l_message VARCHAR2(1024);
+BEGIN
+    emob.pkg_ekyc.prc_getJwtToken(
+        p_userName => :APP_USER,
+        p_token    => l_token,
+        p_status   => l_status,
+        pErrorMessage => l_message
+    );
+
+    -- Check the status and return the token
+    IF l_status = 200 THEN
+        apex_json.open_object;
+        apex_json.write('token', l_token);
+        apex_json.close_object;
+    ELSE
+        apex_json.open_object;
+        apex_json.write('errorMessage',l_message );
+        apex_json.write('token', '');
+        apex_json.close_object;
+    END IF;
+END;
+
+---JavascriptFunction----
+
+function redirectToEkyc() {
+    // Define the base URL
+    var baseUrl = 'http://10.11.200.80:3000/auth?token=';
+    apex.server.process('GetJwtToken', {}, {
+        success: function(pData) {
+            if (pData.token) {
+                var redirectUrl = baseUrl + pData.token;
+                window.open(redirectUrl, '_blank');
+            } else {
+                apex.message.clearErrors();
+                apex.message.showErrors([
+                    {
+                        type: 'error',
+                        location: 'page',
+                        message: pData.errorMessage,
+                        unsafe: false
+                    }
+                ]);
+            }
+        },
+        error: function(xhr, status, error) {
+            apex.message.clearErrors();
+            apex.message.showErrors([
+                {
+                    type: 'error',
+                    location: 'page',
+                    message: 'Error: ' + error,
+                    unsafe: false
+                }
+            ]);
+        }
+    });
+}
+
+----CardQuery--
+SELECT '<img src="#WORKSPACE_IMAGES#icon_kyc.png" height="70px" width="100px" onclick="redirectToEkyc()"> '
+           "CARD_TITLE",
+       NULL
+           "CARD_SUBTEXT",
+       'EKYC'
+           "CARD_TEXT",
+       null
+           card_link,
+           99 APP_VISIBLE_SERIAL
+  FROM DUAL

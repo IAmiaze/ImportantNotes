@@ -1,0 +1,37 @@
+CREATE OR REPLACE FUNCTION fncGetSessionTimeMinitues (
+    pAppUser       VARCHAR2,
+    pIdleTime      VARCHAR2 DEFAULT 'N',
+    pTimeLeft      VARCHAR2 DEFAULT 'N',
+    pMaxIdleTime   VARCHAR2 DEFAULT 'N')
+    RETURN NUMBER
+IS
+    vMinitues   NUMBER;
+BEGIN
+    FOR I
+        IN (SELECT SESSION_CREATED,
+                   SESSION_IDLE_TIMEOUT_ON,
+                   SESSION_LIFE_TIMEOUT_ON,
+                   ROUND (
+                       (SESSION_IDLE_TIMEOUT_ON - SESSION_CREATED) * 24 * 60)
+                       AS SESSION_IDLE_TIME,
+                   ROUND ((SESSION_IDLE_TIMEOUT_ON - SYSDATE) * 24 * 60, 2)
+                       AS TIME_LEFT_MINUTES,
+                   SESSION_MAX_IDLE_SEC / 60
+                       AS MAX_IDLE_MINUTES
+              FROM APEX_WORKSPACE_SESSIONS
+             WHERE USER_NAME = pAppUser)
+    LOOP
+        IF pIdleTime = 'Y'
+        THEN
+            vMinitues := I.SESSION_IDLE_TIME;
+        ELSIF pTimeLeft = 'Y'
+        THEN
+            vMinitues := CASE WHEN I.TIME_LEFT_MINUTES <0 THEN 0  ELSE I.TIME_LEFT_MINUTES END;
+        ELSIF pMaxIdleTime = 'Y'
+        THEN
+            vMinitues := I.MAX_IDLE_MINUTES;
+        END IF;
+    END LOOP;
+ 
+    RETURN vMinitues;
+END;

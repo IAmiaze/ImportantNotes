@@ -1,0 +1,22 @@
+function checkDepositAmount() {
+  var depositAmount = parseFloat(apex.item.displayValueFor("P116_DEPOSIT_AMOUNT"));
+  var minBalance = parseFloat(apex.item("P116_PROD_MIN_BAL").getValue());
+  
+  if (depositAmount < minBalance) {
+    apex.message.showErrors([
+      {
+        type: "error",
+        location: ["page", "inline"],
+        pageItem: "P116_DEPOSIT_AMOUNT",
+        message: "Deposit Minimum value 50,000."
+      }
+    ]);
+    apex.item("P116_ERRR").setValue('Deposit Amount must be greater than or equal to');
+    apex.item("P116_DEPOSIT_AMOUNT").setStyle("color", "black");
+    apex.item("P116_DEPOSIT_AMOUNT").setStyle("background-color", "red");
+  } else {
+    apex.message.clearErrors();
+    apex.item("P116_ERRR").setValue('');
+    apex.item("P116_DEPOSIT_AMOUNT").setStyle("background-color", "white");
+  }
+}

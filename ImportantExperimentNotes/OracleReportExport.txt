@@ -1,0 +1,46 @@
+declare
+    l_highlights     apex_data_export.t_highlights;
+    l_context        apex_exec.t_context;
+    l_export         apex_data_export.t_export;
+    l_print_config    apex_data_export.t_print_config;
+begin
+
+    l_context := apex_exec.open_query_context(
+        p_location    => apex_exec.c_location_local_db,
+        p_sql_query   => 'SELECT ALL DEPARTMENTS.DEPARTMENT_NAME "Department Name", EMPLOYEES.FIRST_NAME "First Name", EMPLOYEES.LAST_NAME "Last Name", 
+        EMPLOYEES.SALARY "Salary", LOCATIONS.CITY "City", COUNTRIES.COUNTRY_NAME "Country Name", EMPLOYEES.HIRE_DATE "Hire Date"
+FROM OEHR_EMPLOYEES EMPLOYEES, OEHR_DEPARTMENTS DEPARTMENTS, OEHR_LOCATIONS LOCATIONS, OEHR_COUNTRIES COUNTRIES
+WHERE EMPLOYEES.HIRE_DATE > to_date(''01-01-2000'',''dd-mm-yyyy'')
+AND ((EMPLOYEES.DEPARTMENT_ID = DEPARTMENTS.DEPARTMENT_ID) 
+AND (DEPARTMENTS.MANAGER_ID = EMPLOYEES.EMPLOYEE_ID) 
+AND (DEPARTMENTS.LOCATION_ID= LOCATIONS.LOCATION_ID) 
+AND (LOCATIONS.COUNTRY_ID=COUNTRIES.COUNTRY_ID))
+ORDER BY DEPARTMENTS.DEPARTMENT_NAME ASC' );
+
+l_print_config := apex_data_export.get_print_config(
+        p_body_font_color             => '#4B4540',
+        p_page_header                 => 'Report of Employees',
+        p_page_header_font_color      => '#4B4540',
+        p_page_header_font_size       => 14,
+        p_page_header_font_weight     => apex_data_export.c_font_weight_bold,
+        p_page_footer                 => 'Your Company',
+        p_page_footer_font_color      => '#4B4540',
+        p_page_footer_font_size       => 14,   
+        p_page_footer_font_weight     => apex_data_export.c_font_weight_bold,
+        p_border_width                => 1,
+        p_border_color                => '#4B4540');                            
+
+    l_export := apex_data_export.export (
+                        p_context      => l_context,
+                        p_format       => apex_data_export.c_format_pdf,
+                        p_print_config => l_print_config );
+
+    apex_exec.close( l_context );
+
+    apex_data_export.download( p_export => l_export );
+
+exception
+    when others then
+        apex_exec.close( l_context );
+        raise;
+end;

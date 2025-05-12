@@ -1,0 +1,48 @@
+function onlyNumberKey(evt) {
+    var ASCIICode = (evt.which) ? evt.which : evt.keyCode
+    if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57))
+        return false; 
+
+    return true;
+}
+
+===========================
+
+function onlyNumberKey(evt) {
+    var ASCIICode = (evt.which) ? evt.which : evt.keyCode
+    if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57))
+    document.getElementById("number").innerHTML = "Alphabets are not allowed";
+    document.getElementById("number").style.color = "red";
+    document.getElementById("number").style.fontSize = "x-medium";
+    if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57))
+    return false; 
+    
+    document.getElementById("number").innerHTML = "";
+    document.getElementById("number").style.color = "";
+    document.getElementById("number").style.fontSize = "";
+
+    return true;
+    
+}
+
+===========================================
+function onlyNumberKey(evt) {
+    var ASCIICode = (evt.which) ? evt.which : evt.keyCode
+    if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57))
+    $('#P105_ACCOUNT_NO_error_placeholder').html('<span class="t-Form-error" style="font-weight:700">Only Numbers.</span>');
+
+    if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57))
+    return false; 
+        
+     $('#P105_ACCOUNT_NO_error_placeholder').html('');  
+    return true;
+    
+
+}
+
+
+
+
+==================
+
+onkeypress="return onlyNumberKey(event)" 

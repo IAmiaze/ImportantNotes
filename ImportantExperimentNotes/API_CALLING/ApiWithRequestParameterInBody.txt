@@ -1,0 +1,73 @@
+DECLARE
+    vExistCustNo     NUMBER;
+    vAcTypId         VARCHAR2 (1024);
+    vCbNo            VARCHAR2 (1024);
+    l_body_to_clob   CLOB;
+    l_plain_text     VARCHAR2 (32767);
+BEGIN
+    l_body_to_clob := apex_web_service.blob2clobbase64 (:body);
+    l_plain_text :=
+        UTL_RAW.cast_to_varchar2 (
+            UTL_ENCODE.base64_decode (UTL_RAW.cast_to_raw (l_body_to_clob)));
+    APEX_JSON.parse (l_plain_text);
+    vCbNo := APEX_JSON.get_varchar2 (p_path => 'CbNo');
+
+    IF UPPER (:UserId) <> 'EKYC' OR :UserPass <> 'Era@2024ThecityBank#2001'
+    THEN
+        APEX_JSON.open_object;
+        APEX_JSON.write ('message',
+                         'Authentication Failed, invalid user or password.');
+        APEX_JSON.close_object;
+        :status := 401;
+        RETURN;
+    ELSIF vCbNo IS NULL
+    THEN
+        APEX_JSON.open_object;
+        APEX_JSON.write ('message', vCbNo || 'CBNo Missing Here.');
+        APEX_JSON.close_object;
+        :status := 400;
+        RETURN;
+    END IF;
+
+    BEGIN
+        SELECT Cust_no
+          INTO vExistCustNo
+          FROM emob.mb_customer_mst
+         WHERE cust_code = vCbNo;
+    EXCEPTION
+        WHEN NO_DATA_FOUND
+        THEN
+            APEX_JSON.open_object;
+            APEX_JSON.write ('Exists_customer', FALSE);
+            APEX_JSON.close_object;
+            :status := 404;
+            RETURN;
+    END;
+
+    IF vExistCustNo IS NOT NULL
+    THEN
+        APEX_JSON.open_object;
+        APEX_JSON.write ('ExistsCustomer', TRUE);
+        
+        -- Start writing the array
+        APEX_JSON.open_array ('AcTypId');
+        FOR i IN (SELECT AC_TYPE_ID
+                    FROM emob.mb_account_mst
+                   WHERE cust_no = vExistCustNo)
+        LOOP
+            APEX_JSON.write (i.AC_TYPE_ID);
+        END LOOP;
+        APEX_JSON.close_array;
+
+        APEX_JSON.close_object;
+    END IF;
+END;
+------------------------------------------------------
+DECLARE
+    vContentType   VARCHAR2 (1024) := :body_text;
+    vCbNo          VARCHAR2 (100);
+BEGIN
+    apex_json.parse (vContentType);
+    vCbNo := apex_json.get_varchar2 ('CbNo');
+    HTP.p (vCbNo);
+END;

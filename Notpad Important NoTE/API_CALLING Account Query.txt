@@ -1,0 +1,23 @@
+DECLARE
+    vResponseJson   VARCHAR2 (1024);
+    vErrorFlag      VARCHAR2 (1024);
+    vErrorMsg       VARCHAR2 (1024);
+BEGIN
+    BEGIN
+        EMOB.GLOBAL_CBS_ALL_API.CUST_INQUIRY_DTL_API (
+            pCustId         => 'CB1908182',
+            pResponseJson   => vResponseJson,
+            pErrorFlag      => vErrorFlag,
+            pErrorMsg       => vErrorMsg);
+    EXCEPTION
+        WHEN OTHERS
+        THEN
+            DBMS_OUTPUT.PUT_LINE ('Api calling Problem - ' || SQLERRM);
+    END;
+
+    IF NVL (vErrorFlag, 'N') = 'Y'
+    THEN
+        DBMS_OUTPUT.PUT_LINE (vErrorMsg);
+    END IF;
+    DBMS_OUTPUT.PUT_LINE (vResponseJson);
+END;

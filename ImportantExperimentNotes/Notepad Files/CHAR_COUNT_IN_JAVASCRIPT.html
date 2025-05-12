@@ -1,0 +1,9 @@
+function setupCharacterCount(inputFieldId, charCountId) {
+    const inputField = document.getElementById(inputFieldId);
+    const charCount = document.getElementById(charCountId);
+    inputField.addEventListener("input", function() {
+        const text = inputField.value;
+        charCount.textContent = text.length;
+    });
+}
+setupCharacterCount("P9_BILL_AC_NO", "charCount");

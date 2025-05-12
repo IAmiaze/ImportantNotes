@@ -1,0 +1,27 @@
+=====Firstly Create an ajax call back in Your Page=========
+
+BEGIN
+   IF LENGTH ( :P105_RECEIVING_ACCOUNT_NO) <> 13
+   THEN
+      HTP.prn ('Receiver A/C Number Should be 13 Digits.');
+   ELSE
+      HTP.prn('SUCCESS');
+   END IF;
+END;
+
+=========== Then Create an Dynamic action Execute Javascript Code On change this Item ==============
+
+apex.server.process('Ac_no_length_validation', {
+    pageItems: '#P105_RECEIVING_ACCOUNT_NO'
+}, {
+    dataType: 'text',
+    success: function(data) {
+        if (data != 'SUCCESS') {
+            //apex.message.alert(data);
+            $('#P105_RECEIVING_ACCOUNT_NO_error_placeholder').html('<span class="t-Form-error" style="font-weight:700">Acoount No Must be 13 digits.</span>');
+            //$('#P105_RECEIVING_ACCOUNT_NO').val("");
+        } else {
+            $('#P105_RECEIVING_ACCOUNT_NO_error_placeholder').html('');
+        }
+    }
+})

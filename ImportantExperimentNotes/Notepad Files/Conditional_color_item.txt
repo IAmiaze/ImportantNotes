@@ -1,0 +1,5 @@
+if ($v('P559_CUST_FOR') === 'I') {
+  $(this.triggeringElement).css('color', 'green');
+} else {
+  $(this.triggeringElement).css('color', 'red');
+}

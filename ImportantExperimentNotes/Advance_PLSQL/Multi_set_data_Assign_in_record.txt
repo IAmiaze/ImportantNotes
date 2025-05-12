@@ -1,0 +1,43 @@
+DECLARE
+    TYPE t_ac_record IS RECORD
+    (
+        ac_no       VARCHAR2 (100),
+        ac_title    VARCHAR2 (100)
+    );
+
+    TYPE t_ac_collection IS TABLE OF t_ac_record;
+
+    l_ac_data     t_ac_collection;
+    l_temp_data   t_ac_collection; -- Temporary collection to hold second query results
+BEGIN
+    -------Intialize record as Empty()------
+    l_ac_data := t_ac_collection ();
+    l_temp_data := t_ac_collection ();
+
+    -- First Query
+    SELECT ac_no, ac_title
+      BULK COLLECT INTO l_ac_data
+      FROM emob.mb_account_mst
+     WHERE ac_id = 85;
+
+    -- Second Query
+    SELECT cust_no AS ac_no, first_name AS ac_title
+      BULK COLLECT INTO l_temp_data
+      FROM emob.mb_customer_mst
+     WHERE CUST_TYPE = 'AGN';
+
+    -- Combine the collections
+    l_ac_data := l_ac_data MULTISET UNION ALL l_temp_data;
+    l_temp_data.DELETE;
+
+    FORALL i IN INDICES OF l_ac_data
+        INSERT INTO emob.SESSION_TEST (ac_no, ac_title)
+             VALUES (l_ac_data (i).ac_no, l_ac_data (i).ac_title);
+
+
+    FOR i IN 1 .. l_ac_data.COUNT
+    LOOP
+        DBMS_OUTPUT.PUT_LINE (
+            l_ac_data (i).ac_no || ' - ' || l_ac_data (i).ac_title);
+    END LOOP;
+END;

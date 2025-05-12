@@ -1,0 +1,859 @@
+CREATE OR REPLACE PROCEDURE EMOB.TRANS_COMM_POSTING_MIAZE311020231 (
+    pBranchCode         VARCHAR2,
+    pAgentNo            NUMBER,
+    pFromDate           DATE,
+    pToDate             DATE,
+    pRunUser            VARCHAR2,
+    pModuleDate         DATE,
+    pDocno          OUT VARCHAR2,
+    pErrorFlag      OUT VARCHAR2,
+    pErrorMessage   OUT VARCHAR2,
+    pOracleError    OUT VARCHAR2)
+IS
+    vMyException         EXCEPTION;
+    vNewDocnumagent      VARCHAR2 (20);
+    vNewDocnumbank       VARCHAR2 (20);
+    vNewDocnumpayable    VARCHAR2 (20);
+    vSerialNo            NUMBER := 0;
+    vTotalPayableDebit   NUMBER := 0;
+    vTotalAgenTCharge    NUMBER := 0;
+    vTotalBankCharge     NUMBER := 0;
+    vValueDate           DATE;
+    vIncomeTAXGl         NUMBER := 0;
+    vTAXAmount           NUMBER := 0;
+    vTranDocnum          VARCHAR2 (50);
+    vTAXGlCode           VARCHAR2 (15);
+    vVATAmount           NUMBER := 0;
+    vYearMonth           VARCHAR2 (1024);
+    vParkingGl           NUMBER := 2242;
+    vvatGl               NUMBER := 2211;
+    vMyExceptionAcLoop   EXCEPTION;
+
+    TYPE PayableRecord IS RECORD
+    (
+        PAYABLE_GLID     PLS_INTEGER,
+        CHARGE_AMOUNT    NUMBER
+    );
+
+
+    TYPE GlidBankchgRec IS RECORD
+    (
+        BANK_CR_GLID    PLS_INTEGER,
+        BANK_CHARGE     NUMBER
+    );
+
+    TYPE TotAgentCommRec IS RECORD
+    (
+        AGENT_AC_ID         PLS_INTEGER,
+        TOT_COMM_AMOUNT     NUMBER,
+        AGENT_AC_NO         VARCHAR2 (20),
+        VAT_APPLICABLE      VARCHAR2 (10),
+        AGENT_VAT_AMOUNT    NUMBER
+    );
+
+    TYPE PayableTable IS TABLE OF PayableRecord;
+
+    TYPE BankchgTable IS TABLE OF GlidBankchgRec;
+
+    TYPE AgentchgTable IS TABLE OF TotAgentCommRec;
+
+    vPayableData         PayableTable;
+    vBankChgData         BankchgTable;
+    vAgentChgData        AgentchgTable;
+
+
+    ---Cursor 1: Payable Wise Charge Total
+    CURSOR CUR_PAYABLE_GL IS
+          SELECT PAYABLE_GLID                                          AS PAYABLE_GLID,
+                 SUM (NVL (AGENT_CHARGE, 0) + NVL (BANK_CHARGE, 0))    AS CHARGE_AMOUNT
+            FROM emob.MB_TRAN_COMM_PROVISION
+           WHERE     TRAN_DATE BETWEEN pFromDate AND pToDate
+                 AND NVL (PARKING_FLAG, 'N') = 'N'
+                 AND (NVL (AGENT_CHARGE, 0) + NVL (BANK_CHARGE, 0)) > 0
+        GROUP BY PAYABLE_GLID;
+
+    ---Cursor 2: GL Wise Bank Charge Total
+    CURSOR CUR_BANKCHG_GL IS
+          SELECT BANK_CR_GLID, SUM (NVL (BANK_CHARGE, 0)) BANK_CHARGE
+            FROM emob.MB_TRAN_COMM_PROVISION
+           WHERE     TRAN_DATE BETWEEN pFromDate AND pToDate
+                 AND NVL (BANK_POST_FLAG, 'N') = 'N'
+                 AND NVL (BANK_CHARGE, 0) > 0
+        GROUP BY BANK_CR_GLID;
+
+    ---Cursor 3: Agent Total Commission
+    CURSOR CUR_TOT_AGENT_COMM IS
+          SELECT TCP.AGENT_AC_ID                    AS AGENT_AC_ID,
+                 SUM (NVL (TCP.AGENT_CHARGE, 0))    AS TOT_COMM_AMOUNT,
+                 ACM.AC_NO                          AS AGENT_AC_NO,
+                 NVL (STC.VAT_APPLICABLE, 'N')      AS VAT_APPLICABLE,
+                 CASE
+                     WHEN STC.VAT_APPLICABLE = 'Y'
+                     THEN
+                         ROUND (SUM (NVL (TCP.AGENT_CHARGE, 0)) * 15 / 115, 2)
+                     ELSE
+                         0
+                 END                                AS AGENT_VAT_AMOUNT
+            FROM EMOB.MB_TRAN_COMM_PROVISION TCP
+                 INNER JOIN EMOB.MB_ACCOUNT_MST ACM
+                     ON (TCP.AGENT_AC_ID = ACM.AC_ID)
+                 INNER JOIN EMOB.ST_TRANSACTION_CODE STC
+                     ON (STC.TRAN_CODE = TCP.TRAN_CODE)
+                 INNER JOIN EMOB.ST_AGENT_POINT SAP
+                     ON (SAP.AGENT_ID = TCP.AGENT_NO)
+           WHERE     TCP.AGENT_NO =
+                     DECODE (pAgentNo, 0, TCP.AGENT_NO, pAgentNo)
+                 AND TCP.TRAN_DATE BETWEEN pFromDate AND pToDate
+                 AND NVL (TCP.POST_FLAG, 'N') = 'N'
+                 AND NVL (TCP.REV_FLAG, 'N') = 'N'
+                 AND NVL (TCP.CHARGE_AMOUNT, 0) > 0
+                 AND TCP.AGENT_AC_ID NOT IN
+                         (SELECT AGENT_AC_ID
+                            FROM EMOB.MB_HOLD_AGENT_PROVISION
+                           WHERE     NVL (HOLD_FLAG, 'N') = 'Y'
+                                 AND NVL (APPROVE_FLAG, 'N') = 'Y')
+        GROUP BY TCP.AGENT_AC_ID, ACM.AC_NO, STC.VAT_APPLICABLE;
+BEGIN
+    vYearMonth :=
+           TO_CHAR (TO_DATE (pFromDate, 'DD/MM/RRRR'), 'Month')
+        || ','
+        || TO_CHAR (TO_DATE (pFromDate, 'DD/MM/RRRR'), 'RRRR');
+
+    IF pModuleDate IS NULL
+    THEN
+        pErrorMessage := 'Module Date Can Not Be Blank.';
+        RAISE vMyException;
+    END IF;
+
+    BEGIN
+        SELECT EMOB.VALUE_DATE.GET_VALUE_DATE (pBranchCode)
+          INTO vValueDate
+          FROM DUAL;
+    EXCEPTION
+        WHEN OTHERS
+        THEN
+            pErrorMessage := 'Value Date Finding Problem.';
+            RAISE vMyException;
+    END;
+
+    IF vValueDate IS NULL
+    THEN
+        pErrorMessage := 'Value Date Can Not Be Blank';
+        RAISE vMyException;
+    END IF;
+
+    BEGIN
+        SELECT CR_GLAC_ID
+          INTO vIncomeTAXGl
+          FROM (SELECT CHG_MST_ID,
+                       AC_TYPE_ID,
+                       CR_GLAC_ID,
+                       EFF_DATE,
+                       NVL (
+                           LEAD (EFF_DATE - 1)
+                               OVER (PARTITION BY AC_TYPE_ID
+                                     ORDER BY EFF_DATE),
+                           TRUNC (SYSDATE) + 10)    EXP_DATE
+                  FROM EMOB.MB_PRODUCT_CHG_MST
+                 WHERE CHG_TYPE = 'TAX' AND AC_TYPE_ID = 9)
+         WHERE pModuleDate BETWEEN EFF_DATE AND EXP_DATE;
+    EXCEPTION
+        WHEN OTHERS
+        THEN
+            pErrorMessage := 'AIT GL Not Found. ';
+            pOracleError := SQLERRM;
+            RAISE vMyException;
+    END;
+
+    IF vIncomeTAXGl IS NULL
+    THEN
+        pErrorMessage := 'AIT GL Can Not Be Blank. ';
+
+        RAISE vMyException;
+    END IF;
+
+    OPEN CUR_PAYABLE_GL;
+
+    FETCH CUR_PAYABLE_GL BULK COLLECT INTO vPayableData LIMIT 9999999;
+
+
+    FOR PL IN 1 .. vPayableData.COUNT
+    LOOP
+        IF vPayableData (PL).CHARGE_AMOUNT > 0
+        THEN
+            BEGIN
+                EMOB.PRC_DOC_NUM_GENERATION (pBranchCode,
+                                             'TR',
+                                             1,
+                                             TO_CHAR (pModuleDate, 'RRRRMM'),
+                                             pErrorFlag,
+                                             pErrorMessage,
+                                             vNewDocnumPayable);
+            EXCEPTION
+                WHEN OTHERS
+                THEN
+                    pOracleError := SQLERRM;
+                    pErrorMessage := 'Transaction No. Generation Problem. ';
+                    RAISE vMyExceptionAcLoop;
+            END;
+
+            IF pErrorFlag = 'Y'
+            THEN
+                RAISE vMyExceptionAcLoop;
+            END IF;
+
+            vSerialNo := vSerialNo + 1;
+            vTranDocnum := vNewDocnumPayable || vSerialNo;
+
+            BEGIN
+                BEGIN
+                    INSERT INTO EMOB.MB_TRANSACTION_DAILY (TRAN_ID,
+                                                           BRANCH_CODE,
+                                                           TRAN_TYPE,
+                                                           DOC_NUM,
+                                                           DOC_DATE,
+                                                           VALUE_DATE,
+                                                           SL_NUM,
+                                                           TRAN_CODE,
+                                                           NARATION,
+                                                           DRCR_CODE,
+                                                           CUR_CODE,
+                                                           EX_RATE,
+                                                           AC_TYPE_ID,
+                                                           AC_ID,
+                                                           TRAN_AMT_FC,
+                                                           TRAN_AMT_LC,
+                                                           CREATE_BY,
+                                                           CREATE_DATE,
+                                                           TRANS_BRANCH_CODE,
+                                                           CHARGE_FLAG,
+                                                           TRAN_DOC_NO,
+                                                           CBS_STATUS,
+                                                           CBS_REV_STATUS,
+                                                           DR_AC_NO,
+                                                           CR_AC_NO)
+                             VALUES (
+                                        TRAN_ID_SEQ.NEXTVAL,
+                                        pBranchCode,
+                                        'TR',
+                                        vNewDocnumPayable,
+                                        TRUNC (pModuleDate),
+                                        TRUNC (vValueDate),
+                                        vSerialNo,
+                                        '20',
+                                           'Credit Parking Gl and Debit Payable Gl Transaction for Agent Commission Transaction Commission of '
+                                        || vYearMonth,
+                                        'C',
+                                        'BDT',
+                                        1,
+                                        NULL,
+                                        NULL,
+                                        vPayableData (PL).CHARGE_AMOUNT,
+                                        vPayableData (PL).CHARGE_AMOUNT,
+                                        pRunUser,
+                                        SYSDATE,
+                                        pBranchCode,
+                                        'Y',
+                                        vTranDocnum,
+                                        'P',
+                                        NULL,
+                                        EMOB.PKG_GLOBAL_OBJECTS.GET_CBSGL_CODE (
+                                            vPayableData (PL).PAYABLE_GLID),
+                                        EMOB.PKG_GLOBAL_OBJECTS.GET_CBSGL_CODE (
+                                            vParkingGl));
+
+                    vTotalPayableDebit :=
+                        vTotalPayableDebit + vPayableData (PL).CHARGE_AMOUNT;
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        pOracleError := SQLERRM;
+                        pErrorMessage :=
+                               'Payable Account Dedit Problem For:'
+                            || vPayableData (PL).PAYABLE_GLID;
+                        RAISE vMyExceptionAcLoop;
+                END;
+
+                BEGIN
+                    UPDATE EMOB.MB_TRAN_COMM_PROVISION
+                       SET PARKING_FLAG = 'Y'
+                     WHERE     AGENT_NO =
+                               DECODE (pAgentNo, 0, AGENT_NO, pAgentNo)
+                           AND TRAN_DATE BETWEEN pFromDate AND pToDate
+                           AND PAYABLE_GLID = vPayableData (PL).PAYABLE_GLID
+                           AND NVL (PARKING_FLAG, 'N') = 'N'
+                           AND NVL (vPayableData (PL).CHARGE_AMOUNT, 0) > 0;
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        pOracleError := SQLERRM;
+                        pErrorMessage :=
+                            'Transaction Commission Posting Status Update Problem For Agent';
+                        RAISE vMyExceptionAcLoop;
+                END;
+
+                BEGIN
+                    /* EMOB.CBS_CASH_TRANSACTION_PROCESS (
+                         pTranBranch   => pBranchCode,
+                         pDocnum       => vNewDocnumPayable,
+                         pDocDate      => pModuleDate,
+                         pRunUser      => pRunUser,
+                         pErrorFlag    => pErrorFlag,
+                         pErrorMsg     => pErrorMessage);*/
+                    NULL;
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        pErrorMessage :=
+                               'API Calling Problem For CBS Transaction.(Parking) - '
+                            || SQLERRM;
+                        RAISE vMyExceptionAcLoop;
+                END;
+
+                IF NVL (pErrorFlag, 'N') = 'Y'
+                THEN
+                    RAISE vMyExceptionAcLoop;
+                END IF;
+            EXCEPTION
+                WHEN vMyExceptionAcLoop
+                THEN
+                    BEGIN
+                        EMOB.INSERT_ERROR_LOG (
+                            'AGNTCOMM',
+                            'TRANS_COMM_POSTING',
+                            pOracleError,
+                            pErrorMessage,
+                            NULL,
+                            vPayableData (PL).PAYABLE_GLID,
+                            NULL,
+                            'SYSTEM',
+                            NULL,
+                            NULL,
+                            pErrorFlag,
+                            pErrorMessage);
+                    END;
+            END;
+        END IF;
+    END LOOP;
+
+    CLOSE CUR_PAYABLE_GL;
+
+    COMMIT;
+
+    OPEN CUR_BANKCHG_GL;
+
+    FETCH CUR_BANKCHG_GL BULK COLLECT INTO vBankChgData LIMIT 9999999;
+
+    FOR BL IN 1 .. vBankChgData.COUNT
+    LOOP
+        IF vBankChgData (BL).BANK_CHARGE > 0
+        THEN
+            BEGIN
+                -------------------------------Document Generation----------------------------------------
+                BEGIN
+                    EMOB.PRC_DOC_NUM_GENERATION (
+                        pBranchCode,
+                        'TR',
+                        1,
+                        TO_CHAR (pModuleDate, 'RRRRMM'),
+                        pErrorFlag,
+                        pErrorMessage,
+                        vNewDocnumBank);
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        pOracleError := SQLERRM;
+                        pErrorMessage :=
+                            'Transaction No. Generation Problem. ';
+                        RAISE vMyExceptionAcLoop;
+                END;
+
+                IF pErrorFlag = 'Y'
+                THEN
+                    RAISE vMyExceptionAcLoop;
+                END IF;
+
+                -------------------------end---------------------------------
+
+                vSerialNo := vSerialNo + 1;
+                vTranDocnum := vNewDocnumBank || vSerialNo;
+
+                BEGIN
+                    INSERT INTO EMOB.MB_TRANSACTION_DAILY (TRAN_ID,
+                                                           BRANCH_CODE,
+                                                           TRAN_TYPE,
+                                                           DOC_NUM,
+                                                           DOC_DATE,
+                                                           VALUE_DATE,
+                                                           SL_NUM,
+                                                           TRAN_CODE,
+                                                           NARATION,
+                                                           DRCR_CODE,
+                                                           CUR_CODE,
+                                                           EX_RATE,
+                                                           AC_TYPE_ID,
+                                                           AC_ID,
+                                                           TRAN_AMT_FC,
+                                                           TRAN_AMT_LC,
+                                                           CREATE_BY,
+                                                           CREATE_DATE,
+                                                           TRANS_BRANCH_CODE,
+                                                           CHARGE_FLAG,
+                                                           TRAN_DOC_NO,
+                                                           CBS_STATUS,
+                                                           CBS_REV_STATUS,
+                                                           DR_AC_NO,
+                                                           CR_AC_NO)
+                             VALUES (
+                                        TRAN_ID_SEQ.NEXTVAL,
+                                        pBranchCode,
+                                        'TR',
+                                        vNewDocnumBank,
+                                        TRUNC (pModuleDate),
+                                        TRUNC (vValueDate),
+                                        vSerialNo,
+                                        '20',
+                                           'Debit Parking Gl and Credit Bank Gl Agent Transaction Commission For '
+                                        || vYearMonth,
+                                        'C',
+                                        'BDT',
+                                        1,
+                                        NULL,
+                                        NULL,
+                                        vBankChgData (BL).BANK_CHARGE,
+                                        vBankChgData (BL).BANK_CHARGE,
+                                        pRunUser,
+                                        SYSDATE,
+                                        pBranchCode,
+                                        'Y',
+                                        vTranDocnum,
+                                        'P',
+                                        NULL,
+                                        EMOB.PKG_GLOBAL_OBJECTS.GET_CBSGL_CODE (
+                                            vParkingGl),
+                                        EMOB.PKG_GLOBAL_OBJECTS.GET_CBSGL_CODE (
+                                            vBankChgData (BL).BANK_CR_GLID));
+
+
+                    vTotalBankCharge :=
+                        vTotalBankCharge + vBankChgData (BL).BANK_CHARGE;
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        pOracleError := SQLERRM;
+                        pErrorMessage := 'Bank Commission Credit Problem.';
+                        RAISE vMyExceptionAcLoop;
+                END;
+
+                BEGIN
+                    UPDATE EMOB.MB_TRAN_COMM_PROVISION
+                       SET BANK_POST_FLAG = 'Y'
+                     WHERE     AGENT_NO =
+                               DECODE (pAgentNo, 0, AGENT_NO, pAgentNo)
+                           AND TRAN_DATE BETWEEN pFromDate AND pToDate
+                           AND NVL (BANK_POST_FLAG, 'N') = 'N'
+                           AND BANK_CR_GLID = vBankChgData (BL).BANK_CR_GLID
+                           AND NVL (BANK_CHARGE, 0) > 0;
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        pOracleError := SQLERRM;
+                        pErrorMessage :=
+                            'Transaction Bank Commission  Posting Status Update Problem For Agent';
+                        RAISE vMyExceptionAcLoop;
+                END;
+
+                --------------PROCESS TO CALL WEB-----------------------
+
+                BEGIN
+                    /*EMOB.CBS_CASH_TRANSACTION_PROCESS (
+                        pTranBranch   => pBranchCode,
+                        pDocnum       => vNewDocnumBank,
+                        pDocDate      => pModuleDate,
+                        pRunUser      => pRunUser,
+                        pErrorFlag    => pErrorFlag,
+                        pErrorMsg     => pErrorMessage);*/
+                    NULL;
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        pErrorMessage :=
+                               'API Calling Problem For CBS Transaction.(Bank) - '
+                            || SQLERRM;
+                        RAISE vMyExceptionAcLoop;
+                END;
+
+                IF NVL (pErrorFlag, 'N') = 'Y'
+                THEN
+                    RAISE vMyExceptionAcLoop;
+                END IF;
+            EXCEPTION
+                WHEN vMyExceptionAcLoop
+                THEN
+                    BEGIN
+                        EMOB.INSERT_ERROR_LOG (
+                            'AGNTCOMM',
+                            'TRANS_COMM_POSTING',
+                            pOracleError,
+                            pErrorMessage,
+                            NULL,
+                            vBankChgData (BL).BANK_CR_GLID,
+                            NULL,
+                            'SYSTEM',
+                            NULL,
+                            NULL,
+                            pErrorFlag,
+                            pErrorMessage);
+                    END;
+            END;
+        END IF;
+    END LOOP;
+
+    CLOSE CUR_BANKCHG_GL;
+
+    COMMIT;
+
+    OPEN CUR_TOT_AGENT_COMM;
+
+    FETCH CUR_TOT_AGENT_COMM BULK COLLECT INTO vAgentChgData LIMIT 9999999;
+
+    FOR AL IN 1 .. vAgentChgData.COUNT
+    LOOP
+        IF vAgentChgData (AL).TOT_COMM_AMOUNT > 0
+        THEN
+            BEGIN
+                -----------------document Generation-----------------------------------
+                BEGIN
+                    EMOB.PRC_DOC_NUM_GENERATION (
+                        pBranchCode,
+                        'TR',
+                        1,
+                        TO_CHAR (pModuleDate, 'RRRRMM'),
+                        pErrorFlag,
+                        pErrorMessage,
+                        vNewDocnumAgent);
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        pOracleError := SQLERRM;
+                        pErrorMessage :=
+                            'Transaction No. Generation Problem. ';
+                        RAISE vMyExceptionAcLoop;
+                END;
+
+                IF pErrorFlag = 'Y'
+                THEN
+                    RAISE vMyExceptionAcLoop;
+                END IF;
+
+                ---------------credit agent Commission------------------------------------------
+                vSerialNo := vSerialNo + 1;
+                vTranDocnum := vNewDocnumagent || vSerialNo;
+
+                BEGIN
+                    INSERT INTO EMOB.MB_TRANSACTION_DAILY (TRAN_ID,
+                                                           BRANCH_CODE,
+                                                           TRAN_TYPE,
+                                                           DOC_NUM,
+                                                           DOC_DATE,
+                                                           VALUE_DATE,
+                                                           SL_NUM,
+                                                           TRAN_CODE,
+                                                           NARATION,
+                                                           DRCR_CODE,
+                                                           CUR_CODE,
+                                                           EX_RATE,
+                                                           AC_TYPE_ID,
+                                                           AC_ID,
+                                                           TRAN_AMT_FC,
+                                                           TRAN_AMT_LC,
+                                                           CREATE_BY,
+                                                           CREATE_DATE,
+                                                           TRANS_BRANCH_CODE,
+                                                           TRAN_DOC_NO,
+                                                           CBS_STATUS,
+                                                           CBS_REV_STATUS,
+                                                           DR_AC_NO,
+                                                           CR_AC_NO)
+                             VALUES (
+                                        EMOB.TRAN_ID_SEQ.NEXTVAL,
+                                        pBranchCode,
+                                        'IN',
+                                        vNewDocnumAgent,
+                                        pModuleDate,
+                                        TRUNC (vValueDate),
+                                        vSerialNo,
+                                        '20',
+                                           'Agent’s Transaction Commission For '
+                                        || vYearMonth
+                                        || ' : Agent’s A/c No : '
+                                        || vAgentChgData (AL).AGENT_AC_NO,
+                                        'C',
+                                        'BDT',
+                                        1,
+                                        NULL,
+                                        vAgentChgData (AL).AGENT_AC_ID,
+                                        ROUND (
+                                            vAgentChgData (AL).TOT_COMM_AMOUNT,
+                                            2),
+                                        ROUND (
+                                            vAgentChgData (AL).TOT_COMM_AMOUNT,
+                                            2),
+                                        pRunUser,
+                                        SYSDATE,
+                                        pBranchCode,
+                                        vTranDocnum,
+                                        'P',
+                                        NULL,
+                                        EMOB.PKG_GLOBAL_OBJECTS.GET_CBSGL_CODE (
+                                            vParkingGl),
+                                        vAgentChgData (AL).AGENT_AC_NO);
+
+                    vTotalAgentCharge :=
+                          vTotalAgentCharge
+                        + vAgentChgData (AL).TOT_COMM_AMOUNT;
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        pErrorMessage :=
+                               'Error : Agent’s Transaction Commission For '
+                            || vYearMonth
+                            || ' : Agent’s A/c No : '
+                            || vAgentChgData (AL).AGENT_AC_NO;
+                        RAISE vMyExceptionAcLoop;
+                END;
+
+                vTAXAmount :=
+                    ROUND ((vAgentChgData (AL).TOT_COMM_AMOUNT * 10) / 100,
+                           2);
+
+                IF NVL (vTAXAmount, 0) > 0
+                THEN
+                    vSerialNo := vSerialNo + 1;
+                    vTranDocnum := vNewDocnumagent || vSerialNo;
+
+                    vTAXGlCode :=
+                        EMOB.PKG_GLOBAL_OBJECTS.GET_CBSGL_CODE (vIncomeTAXGl);
+
+                    BEGIN
+                        INSERT INTO EMOB.MB_TRANSACTION_DAILY (
+                                        TRAN_ID,
+                                        BRANCH_CODE,
+                                        TRAN_TYPE,
+                                        DOC_NUM,
+                                        DOC_DATE,
+                                        VALUE_DATE,
+                                        SL_NUM,
+                                        TRAN_CODE,
+                                        NARATION,
+                                        DRCR_CODE,
+                                        CUR_CODE,
+                                        EX_RATE,
+                                        AC_TYPE_ID,
+                                        AC_ID,
+                                        TRAN_AMT_FC,
+                                        TRAN_AMT_LC,
+                                        CREATE_BY,
+                                        CREATE_DATE,
+                                        TRANS_BRANCH_CODE,
+                                        TRAN_DOC_NO,
+                                        CBS_STATUS,
+                                        CBS_REV_STATUS,
+                                        DR_AC_NO,
+                                        CR_AC_NO)
+                                 VALUES (
+                                            EMOB.TRAN_ID_SEQ.NEXTVAL,
+                                            pBranchCode,
+                                            'IN',
+                                            vNewDocnumagent,
+                                            pModuleDate,
+                                            TRUNC (vValueDate),
+                                            vSerialNo,
+                                            '18',
+                                               'AIT Deduction on Agent’s Transaction Commission For '
+                                            || vYearMonth
+                                            || ' : Agent’s A/c No : '
+                                            || vAgentChgData (AL).AGENT_AC_NO,
+                                            'C',
+                                            'BDT',
+                                            1,
+                                            NULL,
+                                            vAgentChgData (AL).AGENT_AC_ID,
+                                            vTAXAmount,
+                                            vTAXAmount,
+                                            pRunUser,
+                                            SYSDATE,
+                                            pBranchCode,
+                                            vTranDocnum,
+                                            'P',
+                                            NULL,
+                                            vAgentChgData (AL).AGENT_AC_NO,
+                                            vTAXGlCode);
+                    EXCEPTION
+                        WHEN OTHERS
+                        THEN
+                            pErrorMessage :=
+                                   'AIT Deduction on Agent’s Transaction Commission Problem For '
+                                || vYearMonth
+                                || ' : Agent’s A/c No : '
+                                || vAgentChgData (AL).AGENT_AC_NO;
+                            RAISE vMyExceptionAcLoop;
+                    END;
+                END IF;
+
+
+                -------Debit Agent A/C  Credit Vat....
+                BEGIN
+                    IF     NVL (vAgentChgData (AL).AGENT_VAT_AMOUNT, 0) > 0
+                       AND NVL (vAgentChgData (AL).VAT_APPLICABLE, 'N') = 'Y'
+                    THEN
+                        vSerialNo := vSerialNo + 1;
+                        vTranDocnum := vNewDocnumagent || vSerialNo;
+
+                        BEGIN
+                            INSERT INTO EMOB.MB_TRANSACTION_DAILY (
+                                            TRAN_ID,
+                                            BRANCH_CODE,
+                                            TRAN_TYPE,
+                                            DOC_NUM,
+                                            DOC_DATE,
+                                            VALUE_DATE,
+                                            SL_NUM,
+                                            TRAN_CODE,
+                                            NARATION,
+                                            DRCR_CODE,
+                                            CUR_CODE,
+                                            EX_RATE,
+                                            AC_TYPE_ID,
+                                            AC_ID,
+                                            TRAN_AMT_FC,
+                                            TRAN_AMT_LC,
+                                            CREATE_BY,
+                                            CREATE_DATE,
+                                            TRANS_BRANCH_CODE,
+                                            CHARGE_FLAG,
+                                            TRAN_DOC_NO,
+                                            CBS_STATUS,
+                                            CBS_REV_STATUS,
+                                            DR_AC_NO,
+                                            CR_AC_NO)
+                                     VALUES (
+                                                EMOB.TRAN_ID_SEQ.NEXTVAL,
+                                                pBranchCode,
+                                                'TR',
+                                                vNewDocnumagent,
+                                                TRUNC (pModuleDate),
+                                                TRUNC (vValueDate),
+                                                vSerialNo,
+                                                '23',
+                                                   'VAT on Agent’s Transaction Commission For '
+                                                || vYearMonth
+                                                || ' : Agent’s A/c No : '
+                                                || vAgentChgData (AL).AGENT_AC_NO,
+                                                'C',
+                                                'BDT',
+                                                1,
+                                                NULL,
+                                                NULL,
+                                                vVatAmount,
+                                                vVatAmount,
+                                                pRunUser,
+                                                SYSDATE,
+                                                pBranchCode,
+                                                'Y',
+                                                vTranDocnum,
+                                                'P',
+                                                NULL,
+                                                vAgentChgData (AL).AGENT_VAT_AMOUNT,
+                                                EMOB.PKG_GLOBAL_OBJECTS.GET_CBSGL_CODE (
+                                                    vVatGl));
+                        EXCEPTION
+                            WHEN OTHERS
+                            THEN
+                                pOracleError := SQLERRM;
+                                pErrorMessage :=
+                                       'VAT on Agent’s Transaction Commission Problem For '
+                                    || vYearMonth
+                                    || ' : Agent’s A/c No : '
+                                    || vAgentChgData (AL).AGENT_AC_NO;
+                                RAISE vMyExceptionAcLoop;
+                        END;
+
+                        --------------PROCESS TO CALL WEB-----------------------
+                        BEGIN
+                            /*EMOB.CBS_CASH_TRANSACTION_PROCESS (
+                                pTranBranch   => pBranchCode,
+                                pDocnum       => vNewDocNumAgent,
+                                pDocDate      => pModuleDate,
+                                pRunUser      => pRunUser,
+                                pErrorFlag    => pErrorFlag,
+                                pErrorMsg     => pErrorMessage);*/
+                            NULL;
+                        EXCEPTION
+                            WHEN OTHERS
+                            THEN
+                                pErrorMessage :=
+                                       'API Calling Problem For CBS Transaction. - '
+                                    || SQLERRM;
+                                RAISE vMyExceptionAcLoop;
+                        END;
+
+                        IF NVL (pErrorFlag, 'N') = 'Y'
+                        THEN
+                            RAISE vMyExceptionAcLoop;
+                        END IF;
+                    END IF;
+                END;
+            EXCEPTION
+                WHEN vMyExceptionAcLoop
+                THEN
+                    BEGIN
+                        EMOB.INSERT_ERROR_LOG (
+                            'AGNTCOMM',
+                            'TRANS_COMM_POSTING',
+                            pOracleError,
+                            pErrorMessage,
+                            NULL,
+                            vAgentChgData (AL).Agent_ac_id,
+                            NULL,
+                            'SYSTEM',
+                            NULL,
+                            NULL,
+                            pErrorFlag,
+                            pErrorMessage);
+                    END;
+            END;
+        END IF;
+
+        BEGIN
+            UPDATE EMOB.MB_TRAN_COMM_PROVISION
+               SET POST_FLAG = 'Y',
+                   POST_DATE = TRUNC (pModuleDate),
+                   POST_DOC_NUM = vNewDocnumagent
+             WHERE     AGENT_NO = DECODE (pAgentNo, 0, AGENT_NO, pAgentNo)
+                   AND TRAN_DATE BETWEEN pFromDate AND pToDate
+                   AND NVL (POST_FLAG, 'N') = 'N'
+                   AND NVL (REV_FLAG, 'N') = 'N'
+                   AND AGENT_AC_ID = vAgentChgData (AL).AGENT_AC_ID
+                   AND NVL (AGENT_CHARGE, 0) > 0;
+        EXCEPTION
+            WHEN OTHERS
+            THEN
+                pOracleError := SQLERRM;
+                pErrorMessage :=
+                    'Transaction Commission Posting Status Update Problem For Agent';
+                RAISE vMyExceptionAcLoop;
+        END;
+    END LOOP;
+
+    CLOSE CUR_TOT_AGENT_COMM;
+
+    COMMIT;
+    pDocno := vNewDocnumAgent;
+EXCEPTION
+    WHEN vMyException
+    THEN
+        pErrorFlag := 'Y';
+        ROLLBACK;
+END;
+/

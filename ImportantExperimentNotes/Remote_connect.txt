@@ -1,0 +1,16 @@
+ sqlplus myusername/mypassword@Host/ORCL
+ 
+  sqlplus sys as sysdba/efincdbsys@10.11.204.211/PSBOLDDB
+  sqlplus sys as sysdba/efincdbsys@10.11.204.211:1525/PSBOLDDB
+  
+  sqlplus username/password@//hostname:port/service_name
+
+-- For example:
+sqlplus hr/hr@//localhost:1521/orclpdb1
+
+conn sys /efincdbsys@10.11.204.211:1525/PSBOLDDB as sysdba
+
+ADMIN Psb#1234
+ALTER USER APEX_PUBLIC_USER IDENTIFIED BY Psb#1234;
+
+

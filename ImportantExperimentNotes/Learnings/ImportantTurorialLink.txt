@@ -1,0 +1,7 @@
+[1:55 PM, 1/18/2024] Ayub Miaze: https://tm-apex.hashnode.dev/tip3-avoid-success-message-on-refresh-page
+[8:16 PM, 1/22/2024] Ayub Miaze: https://blog.cloudnueva.com/apexwebservice-the-definitive-guide
+[4:58 PM, 1/25/2024] Ayub Miaze: https://blogs.oracle.com/coretec/post/get-sqlid-without-execution-really
+---IG report---
+https://petarsimic.hashnode.dev/oracle-apex-ig-options-you-might-not-know-about
+--Responsive Counter Template---
+https://tm-apex.hashnode.dev/developing-a-responsive-number-counter-with-oracle-apex-my-first-template-component?fbclid=IwAR14QI3SbG3nYhuon_86dLJCQkE37LuDEVZzoWhCMB75pKCHV_pCZX6jfIw

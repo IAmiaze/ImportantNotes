@@ -1,0 +1,10 @@
+==Putty===
+url       : 10.11.201.82 /22
+user name : root
+password  : era@1234
+----------------------------
+cd /u02/apache-tomcat-9.0.39/bin/
+./shutdown.sh
+./startup.sh
+
+

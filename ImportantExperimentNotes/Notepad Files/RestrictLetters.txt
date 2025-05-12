@@ -1,0 +1,87 @@
+function restrictInputToLetters(selector) {
+  $(selector).keypress(function(event){
+    var charCode = (event.which) ? event.which : event.keyCode
+    if (charCode > 31 && (charCode < 65 || charCode > 90) && (charCode < 97 || charCode > 122)) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function validateNumber1(){
+  var keyCode = event.keyCode;
+  var excludedKeys = [8, 37, 39,46,110];
+  
+  if (!((keyCode >= 48 && keyCode <= 57) ||
+      (keyCode >= 96 && keyCode <= 105) ||
+      (excludedKeys.includes(keyCode)||
+      
+))) {
+    console.log("alphabets are not allowed");
+      alert("alphabets are not allowed");
+    event.preventDefault();
+
+  }
+
+  console.log("keycode: " + keyCode);
+}
+
+
+function validateNumber(event) {
+  var keyCode = event.keyCode;
+  var excludedKeys = [8, 37, 39, 46, 110];
+
+  if (!((keyCode >= 48 && keyCode <= 57) ||
+      (keyCode >= 96 && keyCode <= 105) ||
+      (excludedKeys.includes(keyCode)))) {
+      event.preventDefault();
+
+    document.getElementById("amount").innerHTML = "Alphabets are not allowed";
+    document.getElementById("amount").style.color = "red";
+    document.getElementById("amount").style.fontSize = "x-medium";
+
+  }
+  else{
+      document.getElementById("amount").innerHTML = "";
+    document.getElementById("amount").style.color = "";
+    document.getElementById("amount").style.fontSize = "";
+
+  }
+}
+function onlyNumberKey(evt) {
+              
+            // Only ASCII character in that range allowed
+            var ASCIICode = (evt.which) ? evt.which : evt.keyCode
+            if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57))
+                return false;
+            return true;
+        }
+
+
+
+<input type="text" id="myInput">
+
+<script>
+const inputField = document.getElementById('myInput');
+inputField.addEventListener('keyup', function(event) {
+  const pattern = /[^\w\s]/gi; // Regex pattern to match any non-word and non-space character
+  if (pattern.test(this.value)) {
+    this.value = this.value.replace(pattern, ''); // Remove any non-word and non-space characters
+  }
+});
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

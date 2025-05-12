@@ -1,0 +1,45 @@
+----Ajax Call Back-----
+DECLARE
+   lco_collection_name   CONSTANT apex_collections.collection_name%TYPE
+                                      := 'UPLOADED_FILES' ;
+   l_blob                         BLOB;
+   l_filename                     VARCHAR2 (200);
+   l_mime_type                    VARCHAR2 (200);
+   l_token                        VARCHAR2 (32000);
+BEGIN
+   l_filename := APEX_APPLICATION.g_x01;
+   l_mime_type := NVL (APEX_APPLICATION.g_x02, 'application/octet-stream');
+   -- build BLOB from f01 30k array (base64 encoded)
+   DBMS_LOB.createtemporary (l_blob, FALSE, DBMS_LOB.session);
+   FOR i IN 1 .. APEX_APPLICATION.g_f01.COUNT
+   LOOP
+       l_token := wwv_flow.g_f01 (i);
+       IF LENGTH (l_token) > 0
+       THEN
+           DBMS_LOB.append (
+               dest_lob   => l_blob,
+               src_lob    =>
+                   to_blob (
+                       UTL_ENCODE.base64_decode (
+                           UTL_RAW.cast_to_raw (l_token))));
+       END IF;
+   END LOOP;
+   -- add collection member (only if BLOB is not null)
+   IF DBMS_LOB.getlength (l_blob) IS NOT NULL
+   THEN
+       apex_collection.add_member (
+           p_collection_name   => lco_collection_name,
+           p_c001              => l_filename,
+           p_c002              => l_mime_type,
+           p_blob001           => l_blob);
+   END IF;
+   apex_json.open_object;
+   apex_json.write (p_name => 'result', p_value => 'success');
+   apex_json.close_object;
+EXCEPTION
+   WHEN OTHERS
+   THEN
+       apex_json.open_object;
+       apex_json.write (p_name => 'result', p_value => 'fail');
+       apex_json.close_object;
+END;

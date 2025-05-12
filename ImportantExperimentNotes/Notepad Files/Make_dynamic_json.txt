@@ -1,0 +1,81 @@
+CREATE OR REPLACE FUNCTION emob.generate_json_payload (
+    pTableName    IN VARCHAR2,
+    pTableOwner      VARCHAR2 DEFAULT 'EMOB'
+    --pAppId           NUMBER,
+    --pPageID          NUMBER
+    )
+    RETURN CLOB
+IS
+    l_json            CLOB;
+    l_sql             VARCHAR2 (4000);
+    l_column_name     VARCHAR2 (100);
+    l_data_type       VARCHAR2 (100);
+    l_first_row       BOOLEAN := TRUE;
+    l_row_value       VARCHAR2 (32767);
+    l_page_item_val   VARCHAR2 (4000);
+    l_item_name       VARCHAR2 (100);
+BEGIN
+    l_json := '{"PAYLOAD": [';
+
+    FOR c IN (SELECT column_name, data_type
+                FROM all_tab_columns
+               WHERE table_name = 'MB_CUSTOMER_MST' AND owner = 'EMOB')
+    LOOP
+        l_column_name := c.column_name;
+        l_data_type := c.data_type;
+
+        IF NOT l_first_row
+        THEN
+            l_json := l_json || ', ';
+        ELSE
+            l_first_row := FALSE;
+        END IF;
+
+
+        BEGIN
+            l_item_name := INITCAP (REPLACE (l_column_name, '_', ' '));
+        END;
+
+        l_sql :=
+               'SELECT '
+            || l_column_name
+            || ' FROM EMOB.MB_CUSTOMER_MST WHERE CUST_NO=1000022';
+
+        EXECUTE IMMEDIATE l_sql
+            INTO l_row_value;
+
+        /*IF l_column_name LIKE 'P2\_%' ESCAPE '\'
+        THEN
+            l_page_item_val :=
+                APEX_UTIL.GET_SESSION_STATE (
+                    'P2_' || SUBSTR (l_column_name, 4));
+
+            IF l_page_item_val IS NOT NULL
+            THEN
+                l_row_value := l_page_item_val;
+            END IF;
+        END IF;*/
+
+
+        l_json :=
+               l_json
+            || '{ "ITEM_NAME": "'
+            || l_item_name
+            || '",'
+            || '"NEW_VALUE": "'
+            || l_row_value
+            || '",'
+            || '"DB_COLUMN": "'
+            || l_column_name
+            || '",'
+            || '"DB_DATA_TYPE": "'
+            || l_data_type
+            || '",'
+            || '"DISPLAY": "N" }';
+    END LOOP;
+
+    l_json := l_json || ' ]}';
+RETURN l_json;
+    DBMS_OUTPUT.PUT_LINE (l_json);
+END;
+/

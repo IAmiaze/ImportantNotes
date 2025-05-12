@@ -1,0 +1,100 @@
+/* Formatted on 2/24/2025 10:47:11 AM (QP5 v5.388) */
+DECLARE
+    vErrorFlag   VARCHAR2 (1);
+    vErrorMsg    VARCHAR2 (3000);
+BEGIN
+    IF :P9999_USERNAME_1 IS NULL
+    THEN
+        vErrorMsg := 'User Name Required';
+        GOTO End_Block;
+    END IF;
+
+    IF :P9999_EMAIL IS NULL
+    THEN
+        vErrorMsg := 'Email is Required';
+        GOTO End_Block;
+    END IF;
+
+    IF :P9999_PASSWORD_HASH IS NULL
+    THEN
+        vErrorMsg := 'Password is Required';
+        GOTO End_Block;
+    END IF;
+
+    BEGIN
+        INSERT INTO users (username, email, password_hash)
+             VALUES ( :P9999_USERNAME_1, :P9999_EMAIL, :P9999_PASSWORD_HASH);
+    EXCEPTION
+        WHEN DUP_VAL_ON_INDEX
+        THEN
+            vErrorMsg := 'Unique Email or Username Found.';
+            GOTO End_Block;
+    END;
+
+
+    apex_json.open_object;
+    apex_json.write ('success', TRUE);
+    apex_json.write ('message', 'User Registered for My wallet!');
+    apex_json.close_object;
+    GOTO END_PROCESS;
+
+   <<End_Block>>
+    apex_json.open_object;
+    apex_json.write ('success', FALSE);
+    apex_json.write ('message', vErrorMsg);
+    apex_json.close_object;
+
+   <<END_PROCESS>>
+    NULL;
+END;
+
+--------Function--------------------
+function registerUser() {
+    let username = $v("P9999_USERNAME_1");
+    let email = $v("P9999_EMAIL");
+    let password = $v("P9999_PASSWORD_HASH");
+
+    apex.server.process(
+        "REGISTER",
+        {
+            pageItems: "#P9999_USERNAME_1, #P9999_EMAIL, #P9999_PASSWORD_HASH"
+        },
+        {
+            success: function (data) {
+                if (data.success) {
+                    // Show success message
+                    Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: data.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    // Clear input fields
+                    $s("P9999_USERNAME_1", "");
+                    $s("P9999_EMAIL", "");
+                    $s("P9999_PASSWORD_HASH", "");
+
+                    // Set P9999_SET_VAL to 1
+                    $s("P9999_SET_VAL", "1");
+                } else {
+                    // Show error message using SweetAlert
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: data.message
+                    });
+                }
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                Swal.fire({
+                    icon: "error",
+                    title: "AJAX Error",
+                    text: textStatus + ": " + errorThrown
+                });
+            }
+        }
+    );
+}
+

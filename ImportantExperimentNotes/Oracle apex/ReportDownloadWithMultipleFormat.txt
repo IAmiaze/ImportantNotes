@@ -1,0 +1,19 @@
+DECLARE
+    l_export       apex_data_export.t_export;
+    l_region_id    number;
+BEGIN
+   SELECT region_id into l_region_id
+     FROM apex_application_page_regions
+    WHERE application_id = :APP_ID
+      and page_id = :APP_PAGE_ID
+      and static_id = 'Export_Report';
+    
+    l_export := apex_region.export_data (
+         p_format       => CASE WHEN :P1_REPORT_FORMAT='P' THEN apex_data_export.c_format_pdf
+                                WHEN :P1_REPORT_FORMAT='C' THEN apex_data_export.c_format_csv
+                                ELSE apex_data_export.c_format_html END,
+         p_page_id      => :APP_PAGE_ID,
+         p_region_id    => l_region_id );
+         
+    apex_data_export.download( l_export );
+END;

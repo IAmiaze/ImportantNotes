@@ -1,0 +1,34 @@
+--1)
+
+ALTER SESSION SET STATISTICS_LEVEL='ALL';
+
+--2)
+
+EXPLAIN PLAN
+
+    FOR
+
+    ---
+
+        SELECT COMPCODE,
+
+               DOCNUMBR,
+
+               DOCTDATE,
+
+               ACCTCODE,
+
+               DECODE (DBCRCODE, 'D', NVL (AMOUNT, 0)) DR_AMT,
+
+               DECODE (DBCRCODE, 'C', NVL (AMOUNT, 0)) CR_AMT
+
+          FROM EBEK.STTRNDTL
+
+         WHERE TO_CHAR (DOCTDATE, 'YYYYMM') >= :pMNYR AND ACCTCODE IN (16)
+
+    ---
+
+--3       
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY (FORMAT=>'ALL +OUTLINE'));       
+ 
