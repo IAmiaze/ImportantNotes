@@ -1,0 +1,15 @@
+.t-Region-headerItems--title {
+font-weight:500;}
+
+.t-Form-fieldContainer--radioButtonGroup .apex-item-radio input:checked + label, 
+.apex-button-group input:checked + label {
+    background-color: #44a1e2;
+    color: #f9efef;
+}
+
+.t-Region-title {
+    display: inline-block;
+    margin: 0;
+    font-weight: 600;
+}
+
