@@ -1,0 +1,37 @@
+/* Formatted on 5/19/2025 12:39:02 PM (QP5 v5.388) */
+DECLARE
+    v_apex_export_files   apex_t_export_files;  -- table of apex_t_export_file
+BEGIN
+    FOR i IN (SELECT 105 AS app_id FROM DUAL
+              UNION ALL
+              SELECT 106 AS app_id FROM DUAL
+              UNION ALL
+              SELECT 107 AS app_id FROM DUAL)
+    LOOP
+        v_apex_export_files :=
+            apex_export.get_application (p_application_id         => i.app_id,
+                                         p_with_acl_assignments   => TRUE);
+        DBMS_OUTPUT.put_line (v_apex_export_files (1).name);
+        DBMS_OUTPUT.put_line (LENGTH (v_apex_export_files (1).contents));
+
+
+        INSERT INTO EMOB.MB_API_INOUT_XML_LOG (FILE_ID,
+                                               IN_XML,
+                                               OUT_XML,
+                                               OPR_TYPE,
+                                               CREATE_BY,
+                                               CREATE_DATE)
+             VALUES (EMOB.API_FILE_ID_SEQ.NEXTVAL,
+                     v_apex_export_files (1).contents,
+                     v_apex_export_files (1).contents,
+                     v_apex_export_files (1).name,
+                     'SYSTEM',
+                     SYSDATE);
+
+        COMMIT;
+    END LOOP;
+END;
+----Query then-----
+SELECT IN_XML
+  FROM EMOB.MB_API_INOUT_XML_LOG
+ WHERE OPR_TYPE IN ( 'f105.sql' ,'f106.sql','f107.sql')
