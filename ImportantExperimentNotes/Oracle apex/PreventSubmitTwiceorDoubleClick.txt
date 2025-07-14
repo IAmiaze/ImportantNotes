@@ -1,0 +1,38 @@
+🔒 Preventing Double Page Submission in Oracle APEX . A Clean, Reliable Solution.
+
+After hours of searching and testing various methods to solve a critical issue in Oracle APEX, I finally found a practical and elegant solution, and I’m excited to share it with the community.
+🧩 The Problem:
+When users click the submit/save button twice quickly, the page submits twice, causing duplicate records.
+In my case, this led to:
+- Two master records being inserted (e.g., invoice IDs 101 and 102),
+- Only one set of related detail records being saved,
+- The second master row (102) left orphaned.
+And later, a primary key violation error when trying to insert new invoices.
+✅ The Solution:
+I implemented a simple but effective mechanism using:
+A Dynamic Action on the button,
+With two true actions:
+- Execute JavaScript Code to disable the button and show a spinner.
+- Submit the Page.
+Here’s the exact JavaScript code I used:
+
+function preventDoubleSubmission(buttonId) {
+ const button = document.getElementById(buttonId);
+ if (button) {
+ if (!button.getAttribute('data-original-text')) {
+ button.setAttribute('data-original-text', button.innerHTML);
+ }
+
+ button.disabled = true;
+ button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+
+ // re-enable after 5 seconds
+ setTimeout(() => {
+ button.disabled = false;
+ button.innerHTML = button.getAttribute('data-original-text');
+ }, 5000);
+ }
+}
+
+Then I just call:
+handleSubmit('yourButtonStaticId');
