@@ -1,0 +1,111 @@
+Automatically Expand/Collapse Oracle APEX Menu Based on Device Orientation
+------------------------------------------------------------------------------------------
+When building Oracle APEX applications optimized for tablet devices like iPads, the header menu region may not always behave responsively by default. On devices like the iPad Air or Pro, users expect a smooth UI transition between portrait and landscape orientations.
+
+Objective:
+
+Automatically collapse the header menu in portrait mode (to save space).
+
+Automatically expand it in landscape mode (to utilize available width).
+
+Apply this behavior only for tablets like iPads (not desktops or phones).
+
+Ensure seamless integration within Oracle APEX's framework.
+
+Solution Overview:
+
+The solution involves a JavaScript snippet that:
+
+Detects screen width and height to identify tablets.
+
+Monitors orientation changes and window resizing.
+
+Dynamically clicks the expand/collapse button or manually adjusts DOM classes/styles.
+
+Uses APEX APIs when available to maintain clean integration.
+
+Includes fallbacks in case built-in APIs don’t respond.
+
+Key Features:
+
+Supports iPad Mini, Air, Pro 11”, and Pro 12.9” dimensions.
+
+Works with Redwood theme and other APEX themes.
+
+Uses media query logic and debounced listeners.
+
+Cleanly integrates into APEX page load lifecycle.
+
+JavaScript Implementation:
+
+
+
+
+(function () {
+    const headerMenuRegion = document.getElementById("header_menu");
+
+    function handleOrientationChangeMediaQuery() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        const isTabletPortrait = (width >= 768 && width <= 1400) && (height > width);
+        const isTabletLandscape = (width >= 768 && width <= 1400) && (width > height);
+
+        console.log(`Tablet Portrait: ${isTabletPortrait}, Tablet Landscape: ${isTabletLandscape}`);
+
+        if (headerMenuRegion) {
+            if (isTabletPortrait) {
+                console.log("Portrait - Collapsing");
+                document.querySelectorAll('button.t-Button--hideShow[aria-expanded="true"]').forEach((btn) => {
+                    btn.click();
+                    btn.blur();
+                });
+            } else if (isTabletLandscape) {
+                console.log("Landscape - Expanding");
+                const expandButton = document.querySelector('#header_menu button.t-Button--hideShow[aria-expanded="false"]');
+                if (expandButton) {
+                    expandButton.click();
+                    expandButton.blur();
+                } else {
+                    if (typeof apex !== 'undefined' && apex.widget?.collapsible) {
+                        try {
+                            apex.widget.collapsible.expand(headerMenuRegion);
+                        } catch (e) {
+                            console.log("Fallback expand:", e);
+                        }
+                    }
+                    headerMenuRegion.classList.add("is-expanded");
+                    headerMenuRegion.classList.remove("is-collapsed");
+
+                    const content = headerMenuRegion.querySelector('.a-Collapsible-content');
+                    if (content) {
+                        content.style.display = 'block';
+                        content.style.height = 'auto';
+                    }
+
+                    const button = headerMenuRegion.querySelector('button.t-Button--hideShow');
+                    if (button) {
+                        button.setAttribute('aria-expanded', 'true');
+                        button.classList.add('is-expanded');
+                        button.classList.remove('is-collapsed');
+                    }
+                }
+
+                if (typeof apex !== 'undefined' && apex.region("header_menu")) {
+                    apex.region("header_menu").refresh();
+                }
+            }
+        }
+    }
+
+    handleOrientationChangeMediaQuery();
+
+    let resizeTimer;
+    function debouncedHandler() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(handleOrientationChangeMediaQuery, 100);
+    }
+
+    window.addEventListener("orientationchange", debouncedHandler);
+    window.addEventListener("resize", debouncedHandler);
+})();
