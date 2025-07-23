@@ -1,0 +1,145 @@
+
+## Complete Process for Seamless Export in Oracle APEX
+
+### 1. Create an AJAX Process to Generate the File
+- In Page Designer, go to **Processing**.
+- Right-click, select **Create**, then **Ajax Callback**.
+- Name it: `GET_FILE`.
+- Add the following PL/SQL code to generate the file (Excel example):
+
+```sql
+DECLARE
+  l_blob        BLOB;
+  l_mime_type   VARCHAR2(255);
+  l_filename    VARCHAR2(255);
+BEGIN
+  SELECT BLOB001 BLOB_CONTENT, C002 MIME_TYPE, C001 FILENAME
+  INTO l_blob, l_mime_type, l_filename
+  FROM apex_collections
+  WHERE collection_name = 'FILE';
+
+  -- Set headers
+  OWA_UTIL.MIME_HEADER(l_mime_type, FALSE);
+  HTP.P('Content-length: ' || DBMS_LOB.GETLENGTH(l_blob));
+  HTP.P('Content-Disposition: attachment; filename="' || l_filename || '"');
+  OWA_UTIL.HTTP_HEADER_CLOSE;
+
+  -- Download the blob
+  WPG_DOCLOAD.DOWNLOAD_FILE(l_blob);
+  APEX_APPLICATION.STOP_APEX_ENGINE;
+END;
+```
+
+---
+
+### 2. Create a JavaScript Function to Show Toast Message
+- Go to **Page > Function and Global Variable Declaration**.
+- Add this JavaScript function:
+
+```js
+function showToast(msg) {
+    window.toast = $(`
+    <div class="t-Alert t-Alert--info t-Alert--defaultIcons t-Alert--horizontal"
+         style="
+           position: fixed;
+           top: 60px;
+           right: 20px;
+           z-index: 9999;
+           min-width: 300px;
+           background-color: #1976D2;
+           color: white;
+           box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+           border-radius: 8px;
+         ">
+      <div class="t-Alert-wrap" style="display: flex; align-items: center;">
+        <div class="t-Alert-icon" style="padding: 10px; background-color: unset; color: white;">
+          <span class="fa fa-download" style="font-size: 20px;"></span>
+        </div>
+        <div class="t-Alert-content" style="padding: 10px; flex: 1;">
+          <div class="t-Alert-body" style="font-size: 14px;">${msg}</div>
+        </div>
+      </div>
+    </div>
+    `);
+    toast.appendTo('body').delay(3000);
+}
+```
+
+---
+
+### 3. Create a Download Button
+- Add a button labeled **Download**.
+- Set its **Action** to **Defined by Dynamic Action**.
+
+---
+
+### 4. Create a Dynamic Action on the Button
+- **Event:** Click
+- **Selection Type:** Button
+- Add the following true actions:
+
+#### Action 1: Show Toast (JavaScript)
+- Set **Action** to **Execute JavaScript**:
+```js
+showToast('File is being downloaded!');
+```
+
+#### Action 2: Generate and Download the File (AJAX Call)
+- Set **Action** to **Execute PL/SQL Code** with this code:
+
+```sql
+DECLARE
+    l_export       apex_data_export.t_export;
+    l_region_id    NUMBER;
+BEGIN
+    APEX_COLLECTION.CREATE_OR_TRUNCATE_COLLECTION('FILE');
+
+    SELECT region_id INTO l_region_id
+    FROM apex_application_page_regions
+    WHERE application_id = :APP_ID
+      AND page_id = :APP_PAGE_ID
+      AND static_id = 'projects_report'; -- use your static ID
+
+    l_export := apex_region.export_data (
+        p_format       => apex_data_export.c_format_xlsx,
+        p_page_id      => :APP_PAGE_ID,
+        p_region_id    => l_region_id
+    );
+
+    APEX_COLLECTION.ADD_MEMBER (
+        p_collection_name => 'FILE',
+        p_c001 => l_export.FILE_NAME,
+        p_c002 => l_export.MIME_TYPE,
+        p_blob001 => l_export.content_blob
+    );
+END;
+```
+
+#### Action 3: Trigger File Download (JavaScript)
+- Use **Execute JavaScript**:
+
+```js
+window.toast.fadeOut(400, function() { $(this).remove(); });
+var link = $('<a>')
+    .attr('href', 'f?p=&APP_ID.:&APP_PAGE_ID.:&SESSION.:APPLICATION_PROCESS=GET_FILE::::')
+    .appendTo('body');
+link[0].click();
+link.remove();
+```
+
+---
+
+### 5. Verify Result
+- When clicking **Download**:
+  - A toast message appears.
+  - The file is generated on the server asynchronously.
+  - The download starts automatically without page reload.
+
+### 6. Final Notes
+- You now have a seamless, one-click report download in Oracle APEX.
+- This approach works with Interactive Reports, Grids, or other regions.
+- Customize the export format as needed (CSV, PDF, etc.).
+
+---
+
+Would you like me to prepare a consolidated code snippet or assist with any specific customization?
