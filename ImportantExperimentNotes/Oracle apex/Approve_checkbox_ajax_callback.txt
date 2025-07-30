@@ -108,3 +108,17 @@ apex.server.process(
   // Optional: Handle the response here if needed
   console.log("Ajax callback successful, response: " + pData);
 });
+
+javascript:handleApproval(&USER_ID., true);
+
+Work experience  
+Kfc teh 2021- 2024 diyen..
+March 07. 2021-Present
+
+
+Muwailah - KFC
+University City Rd - Sharjah - United Arab Emirates
+
+saydulhoqueamiaze@gmail.com
+
++971553662849
