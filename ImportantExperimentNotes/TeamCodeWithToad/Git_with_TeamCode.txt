@@ -1,0 +1,131 @@
+							====== "Version Contoling With TeamCoding In Toad" =====
+							----------------------------------------------------
+** What is "TeamCoding" in TOAD?
+==========================================
+Team Coding is a utility in Toad which provides a convenient way to 
+control database objects and scripts within a team environment through a single common interface.
+
+**"Expanded Description"
+====================================
+
+"Team Coding" is primarily to be used in a team environment 
+where multiple people are making updates to a database 
+and you want to make sure people are working together, 
+without stepping on each other's toes, 
+while also handling change management and optionally version control management 
+in an external version control provider. For change management, 
+Team Coding will allow you to check out objects and 
+lock them from modifications by others while you're working with them. 
+If you tie it to a back-end version control system, 
+it will also work with the VCS to provide version management for the DDL of those objects. 
+
+for more info :https://blog.toadworld.com/using-git-version-control-system-in-toad-for-oracle
+
+
+** Which "objects" can control:
+--------------------------------------------------------
+table ,index ,Constraint , function ,procedures ,trigger , packages etc.
+
+
+** Remote Repository Details **
+==========================================================================
+Firstly Create a "Git Remote Repository",
+where you want to push your Objects from Team Toad:
+
+ ** Example of Remote Repository Link: https://github.com/IAmiaze/RepTeamCodeWithToadVcs.git
+
+--------------------------------------------------------------------------
+--------------------------Some essential Command--------------------------
+echo "# RepTeamCodeWithToadVcs" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/IAmiaze/RepTeamCodeWithToadVcs.git
+git push -u origin main
+---------------------------------------------------------------------------
+git remote add origin https://github.com/IAmiaze/RepTeamCodeWithToadVcs.git
+git branch -M main
+git push -u origin main
+
+===========================================================================
+Step 1 : Install (git Bash) *git.exe* on your Local PC
+
+Step 2 : Make a Local Repository Folder: 
+
+	   step-1.. open cmd from your Local Repository folder , 
+	   or go to the desired directory with Change Directory (cd F:\Importants) .
+	   
+	   step-2..Initiate your git on local Repository with  *git init * command in CMD.
+			
+*note  : if you've already initiate a repository in your local 
+
+		 then check remote add or not with: git remote -v*
+		 
+	     if you find any remote except your desired one,
+		 
+		 skip or remove this step-> git remote remove <name>
+	   
+****Else following step below..
+
+			b) add your remote origin on it by * git remote add origin https://github.com/IAmiaze/RepTeamCodeWithToadVcs.git
+			
+			c) Open Toad and Connect your DB with SYSDBA Prevelieges user.
+			Install Team Coding  From top nav menu bar in  by clicking on Team Coding.
+			
+			d) Define your Local repository Path in Project.
+			
+			e) Select all required fields, how you wants to protect.
+			
+			f) Select your desired DB user in Team coding.
+			
+			g) Create a Revision of your file.
+			
+			h) Login to * VCS with Repository Path which are iniate in Step 1  with  your Local folder using user & Mail ID.
+			
+			
+Step 3: After that Try to Push Your source,if you've facing any issue when pushing..
+		reason are (already you've some files in your remote repository) :
+		
+		* Here are some steps you can take to resolve this issue:
+		
+		Fetch Changes: Before pushing your changes, 
+		it's a good idea to fetch the changes from the remote repository to see what has been added.
+		
+		* git fetch origin
+		
+		Merge or Rebase: 
+		-----------------
+		After fetching, you have a few options. You can either merge the changes ,
+		into your local branch or rebase your local changes on top of the remote changes. 
+		The choice between merge and rebase depends on your workflow and preferences.
+		
+		Merge:
+		* git merge origin/master
+		
+		Rebase:
+		* git rebase origin/master
+		
+		* git push origin master
+		
+Other Needed steps:
+-----------------------------------------------------------------------------------------------------------
+If you working on any other DB Team Coding which already a TC Project Exists then..
+
+		Git Clone: clone source in local git repository --->
+		
+		* git clone [repository URL] on your Local Path.
+		
+		* Note:
+		
+		* Keep in mind that if you're working in a shared repository
+		
+		* it's good practice to frequently pull or fetch changes from the remote repository to avoid conflicts like this.
+		
+		* If you're using Toad Previous version you'll unable to access some feature of Git pull & Push .
+		
+		* So I recommened to use version 13.0.0 or Above.
+		
+		
+Extra Link:
+https://forums.toadworld.com/t/team-coding-install-configure-check-in-out-steps-in-toad-12-8-0-49/50008
