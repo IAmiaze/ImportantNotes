@@ -1,0 +1,177 @@
+
+1. AjaxCallBack Processing
+===============================================================
+DECLARE
+    l_blob       BLOB;
+    n_blob       BLOB;
+    b_blob       BLOB;
+    l_token      VARCHAR2 (32000);
+    n_token      VARCHAR2 (32000);
+    b_token      VARCHAR2 (32000);
+BEGIN
+    IF apex_collection.collection_exists('IMAGE_COLLECTION') THEN
+        apex_collection.delete_collection('IMAGE_COLLECTION');
+    END IF;
+
+    apex_collection.create_collection('IMAGE_COLLECTION');
+
+    -- BEARER IMAGE (f01)
+    DBMS_LOB.createtemporary(b_blob, FALSE, DBMS_LOB.session);
+    FOR i IN 1 .. APEX_APPLICATION.g_f01.COUNT LOOP
+        b_token := wwv_flow.g_f01(i);
+        IF LENGTH(b_token) > 0 THEN
+            DBMS_LOB.append(
+                dest_lob => b_blob,
+                src_lob  => to_blob(UTL_ENCODE.base64_decode(UTL_RAW.cast_to_raw(b_token)))
+            );
+        END IF;
+    END LOOP;
+
+    -- NID IMAGE (f02)
+    DBMS_LOB.createtemporary(l_blob, FALSE, DBMS_LOB.session);
+    FOR i IN 1 .. APEX_APPLICATION.g_f02.COUNT LOOP
+        l_token := wwv_flow.g_f02(i);
+        IF LENGTH(l_token) > 0 THEN
+            DBMS_LOB.append(
+                dest_lob => l_blob,
+                src_lob  => to_blob(UTL_ENCODE.base64_decode(UTL_RAW.cast_to_raw(l_token)))
+            );
+        END IF;
+    END LOOP;
+
+    -- NID BACK (f03)
+    DBMS_LOB.createtemporary(n_blob, FALSE, DBMS_LOB.session);
+    FOR i IN 1 .. APEX_APPLICATION.g_f03.COUNT LOOP
+        n_token := wwv_flow.g_f03(i);
+        IF LENGTH(n_token) > 0 THEN
+            DBMS_LOB.append(
+                dest_lob => n_blob,
+                src_lob  => to_blob(UTL_ENCODE.base64_decode(UTL_RAW.cast_to_raw(n_token)))
+            );
+        END IF;
+    END LOOP;
+
+    -- Add to collection
+    apex_collection.add_member(
+        p_collection_name => 'IMAGE_COLLECTION',
+        p_blob001         => b_blob,
+        p_c001            => :P257_CUST_NO,
+        p_c002            => 'BEARER'
+    );
+
+    apex_collection.add_member(
+        p_collection_name => 'IMAGE_COLLECTION',
+        p_blob001         => l_blob,
+        p_c001            => :P257_CUST_NO,
+        p_c002            => 'NID'
+    );
+
+    apex_collection.add_member(
+        p_collection_name => 'IMAGE_COLLECTION',
+        p_blob001         => n_blob,
+        p_c001            => :P257_CUST_NO,
+        p_c002            => 'NID_BACK'
+    );
+
+    apex_json.open_object;
+    apex_json.write('success', TRUE);
+    apex_json.write('message', 'Images Saved Successfully');
+    apex_json.close_object;
+END;
+
+Function for SaveDoc
+========================================================================
+/**
+ * SaveDoc Function
+ * ----------------
+ * Purpose:
+ *   Handles the process of validating the page, retrieving stored images from session storage,
+ *   splitting them into smaller chunks (CLOB handling), and submitting them to the server via 
+ *   an APEX process named "SAVE_DOCUMENT". Provides user feedback and confirmation dialogs 
+ *   upon completion.
+ *
+ * Workflow:
+ *   1. Validate the APEX page before submission.
+ *   2. If invalid, show an error message.
+ *   3. If valid:
+ *        - Disable the "Submit" button and show a spinner to prevent duplicate submissions.
+ *        - Retrieve Base64 image data (BEARER, NID front, NID back) from APEX scoped session storage.
+ *        - Split large CLOB data into 30,000-character chunks for transmission.
+ *        - Send the chunks and required page items to the server process.
+ *   4. Handle server response:
+ *        - If success: show confirmation dialog for token generation, re-enable button, and clear session.
+ *        - If failure: re-enable button and show error message from server.
+ *   5. Remove spinner after completion.
+ */
+function SaveDoc() {
+    // Step 1: Validate the APEX page
+    if (!apex.page.validate()) {
+        // Show error if validation fails
+        apex.message.showErrors([{
+            type: "error",
+            location: "page",
+            message: "Correct Error Before Save.!",  // Custom message
+            unsafe: false
+        }]);
+    } else {
+        // Step 2: Disable the submit button and show loading spinner
+        $("#SUBMIT_BTN").attr("disabled", "disabled");
+        var lSpinner$ = apex.util.showSpinner();
+
+        // Step 3: Retrieve images (Base64 strings) from APEX session storage
+        var myStorage = apex.storage.getScopedSessionStorage({
+            prefix: "CAMERA",  // Custom prefix for storage keys
+            useAppId: true     // Ensures uniqueness per APEX app
+        });
+
+        var clobBearer  = myStorage.getItem("BEARER_IMG"); // Bearer photo
+        var clobNid     = myStorage.getItem("NID_IMG");    // NID front
+        var clobNidBack = myStorage.getItem("NID_BACK");   // NID back
+
+        // Arrays for splitting CLOBs into chunks (to handle large data transmission)
+        var f01Array = [], f02Array = [], f03Array = [];
+
+        if (clobBearer)  f01Array = clob2Array(clobBearer, 30000, f01Array);
+        if (clobNid)     f02Array = clob2Array(clobNid, 30000, f02Array);
+        if (clobNidBack) f03Array = clob2Array(clobNidBack, 30000, f03Array);
+
+        // Step 4: Call server process to save documents
+        apex.server.process(
+            "SAVE_DOCUMENT",
+            {
+                f01: f01Array,   // Bearer photo chunks
+                f02: f02Array,   // NID front chunks
+                f03: f03Array,   // NID back chunks
+                pageItems: "#P257_CUST_NO" // Customer reference
+            },
+            {
+                success: function (pData) {
+                    // If server returns success
+                    if (pData.success === true) {
+                        apex.confirm(
+                            "Deposit To A/c No : " + $v("P257_ACCOUNT_NO") +
+                            " Deposit Amount : " + $v("P257_TOTAL_AMOUNT") +
+                            " Do You Want To Generate Token ?", 
+                            "SUBMIT"
+                        );
+                        $("#SUBMIT_BTN").removeAttr("disabled"); // Re-enable button
+                        sessionStorage.clear(); // Clear all stored images
+                    } else {
+                        // If server returns failure
+                        $("#SUBMIT_BTN").removeAttr("disabled");
+                        apex.message.clearErrors();
+                        apex.message.showErrors([{
+                            type: "error",
+                            location: "page",
+                            message: pData.message, // Show server error message
+                            unsafe: false
+                        }]);
+                    }
+                }
+            }
+        );
+
+        // Step 5: Remove spinner after process is initiated
+        lSpinner$.remove();
+    }
+}
