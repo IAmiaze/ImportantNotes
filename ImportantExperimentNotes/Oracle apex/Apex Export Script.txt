@@ -34,39 +34,45 @@ END;
 ORDER BY FILE_ID DESC
    FETCH FIRST ROW ONLY
  
- 
- ----Page Export----
- 
- DECLARE
-    v_apex_export_files   apex_t_export_files;  -- table of apex_t_export_file
-    v_components          apex_t_varchar2 := apex_t_varchar2 ();
+ /* Export Pages and Store Log Table*/
+DECLARE
+    v_apex_export_files   apex_t_export_files;
+    v_components          apex_t_varchar2 := apex_t_varchar2 ();
 BEGIN
-    FOR i IN (SELECT 105 AS app_id, 'PAGE:679' AS PAGE_COMP FROM DUAL)
-    LOOP
-        v_components.DELETE; 
-        v_components.EXTEND(1);
-        v_components(1) := i.PAGE_COMP;
+    FOR i IN (SELECT 117 AS app_id, '376' AS PAGE_ID FROM DUAL)
+    LOOP
+        v_components.DELETE;
+        v_components.EXTEND (1);
+        v_components (1) := 'PAGE:' || i.PAGE_ID;
 
-        v_apex_export_files :=
-            apex_export.get_application (p_application_id   => i.app_id,
-                                         p_components       => v_components);
+        v_apex_export_files :=
+            apex_export.get_application (p_application_id   => i.app_id,
+                                         p_components       => v_components);
 
-        DBMS_OUTPUT.put_line (v_apex_export_files (1).name);
-        DBMS_OUTPUT.put_line (LENGTH (v_apex_export_files (1).contents));
+        DBMS_OUTPUT.put_line (v_apex_export_files (1).name);
+        DBMS_OUTPUT.put_line (LENGTH (v_apex_export_files (1).contents));
 
-        INSERT INTO EMOB.MB_API_INOUT_XML_LOG (FILE_ID,
-                                               IN_XML,
-                                               OUT_XML,
-                                               OPR_TYPE,
-                                               CREATE_BY,
-                                               CREATE_DATE)
-        VALUES (EMOB.API_FILE_ID_SEQ.NEXTVAL,
-                v_apex_export_files (1).contents,
-                v_apex_export_files (1).contents,
-                v_apex_export_files (1).name,
-                'SYSTEM',
-                SYSDATE);
+        INSERT INTO EMOB.MB_API_INOUT_XML_LOG (FILE_ID,
+                                               IN_XML,
+                                               OUT_XML,
+                                               OPR_TYPE,
+                                               CREATE_BY,
+                                               CREATE_DATE)
+             VALUES (EMOB.API_FILE_ID_SEQ.NEXTVAL,
+                     v_apex_export_files (1).contents,
+                     v_apex_export_files (1).contents,
+                     'f' || i.app_id || '_page_' || i.page_id || '.sql',
+                     'SYSTEM',
+                     SYSDATE);
 
-        COMMIT;
-    END LOOP;
+        COMMIT;
+    END LOOP;
 END;
+
+
+/*Find The Latest page from Table*/
+  SELECT FILE_ID, OUT_XML
+    FROM EMOB.MB_API_INOUT_XML_LOG
+   WHERE OPR_TYPE = 'f117_page_376.sql'
+ORDER BY FILE_ID DESC
+   FETCH FIRST ROW ONLY;

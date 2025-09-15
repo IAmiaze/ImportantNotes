@@ -1,0 +1,64 @@
+Export all application
+-------------------------------
+apex export -workspaceid 1400484024213076
+
+----Export Workspace--------------
+apex export -expWorkspace -workspaceId 1400484024213076
+----------------------------------
+
+CD D:\eAgentVersionControl\SONALI_ABS
+project init -name SONALI_ABS -schemas EMOB
+
+git remote add origin https://erainfotechbd@dev.azure.com/erainfotechbd/eAgent/_git/city_abs_app
+
+git fetch origin
+git pull origin main --rebase   # bring remote files into your repo
+git push -u origin main
+
+
+
+# make sure you’re in your repo folder
+git checkout -b miaze_dev   # creates and switches to miaze_dev branch
+git push --set-upstream origin miaze_dev
+
+SQL> apex export -list -workspaceid 1400484024213076
+
+sqlcl> project export -schemas EMOB,GUMS,BIOTPL,MEMIMG
+
+----This export application in single File with located Deirectory----
+apex export -workspaceid 1400484024213076 -dir D:\eAgentVersionControl\CITY_ABS\FULL_APP
+
+sqlcl> project export -schemas EMOB,GUMS,BIOTPL,MEMIMG
+
+
+-- Export the current schema to a dump file
+sqlcl> dp export -dumpfile my_schema.dmp -logfile my_schema.log
+
+-- Export the specified schemas (e.g., HR and DEMO)
+sqlcl> dp export -schemas HR,DEMO -dumpfile -dir D:\eAgentVersionControl\CITY_ABS\DUMP multi_schema.dmp D:\eAgentVersionControl\CITY_ABS\DUMP
+
+CREATE OR REPLACE DIRECTORY EMOB_DUMP_DIR AS 'D:\eAgentVersionControl\CITY_ABS\DUMP';
+
+
+-- Export a single function named "CALCULATE_SALARY"
+sqlcl> project export -o FUNCTION_CALCULATE_SALARY
+
+-- Export a specific view
+sqlcl> project export -o VIEW_EMP_INFO
+
+connect EMOB@//10.11.201.211:1525/SONALILIVE
+
+
+
+SQL> apex export -applicationid 1234 -split -expComponents LOV:23618973754424510000 PAGE:3 PAGE:11
+Exporting Application 1234
+
+apex export -applicationid 105 -list
+
+apex export -applicationid 105 -split -expComponents PAGE:100099
+
+git config --global user.name
+git config --global user.email
+
+git config --global user.name "Ayub Miaze"
+git config --global user.email "ayub@erainfotechbd.com"
