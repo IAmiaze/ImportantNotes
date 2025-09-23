@@ -1,0 +1,13 @@
+http://127.0.0.1:8080/apex/f?p=4550:11:2423478493276502::NO:::
+sys 
+123456
+
+CREATE USER miaze IDENTIFIED BY miaze;
+GRANT CREATE SESSION TO miaze;
+sqlplus miaze/miaze AS SYSDBA
+
+GRANT CREATE SESSION TO miaze;  -- for login
+GRANT CREATE TABLE TO miaze;    -- allow creating tables
+GRANT UNLIMITED TABLESPACE TO miaze; 
+
+password--weblogic1
