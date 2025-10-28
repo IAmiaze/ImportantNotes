@@ -1,0 +1,159 @@
+/* Formatted on 10/27/2025 6:25:53 PM (QP5 v5.294) */
+CREATE OR REPLACE PROCEDURE MIS_GET_MAIN_API (pLogId              NUMBER,
+                                              pToken          OUT VARCHAR2,
+                                              pErrorFlag      OUT VARCHAR2,
+                                              pErrorMessage   OUT VARCHAR2)
+IS
+   vReqId            PLS_INTEGER := EMOB.API_FILE_ID_SEQ.NEXTVAL;
+   vOutput           CLOB;
+   vMyException      EXCEPTION;
+   vAuthUrl          VARCHAR2 (3000)
+      := 'https://mis-wt-uat.primebank.com.bd:8085/primemis/mismig/misapi/misapiservice';
+
+   vInputBody        VARCHAR2 (1024) := '{
+    "username": "AGENTBNK",
+    "pwd": "123456",
+    "prequesttype": "AGENTBANK",
+    "pfiledate": "20251027"
+}';
+
+   vResCode          VARCHAR2 (50);
+   l_response_body   CLOB;
+   vToken            VARCHAR2 (1024);
+   vLToken           VARCHAR2 (3000);
+   vResMsg           VARCHAR2 (1024);
+BEGIN
+   pErrorFlag := 'N';
+
+   BEGIN
+      apex_web_service.oauth_authenticate (
+         p_token_url          => 'https://mis-wt-uat.primebank.com.bd:8085/primemis/mismig/oauth/token',
+         p_client_id          => 'kD6G73kpJYc5x6t8D32fgA..',
+         p_client_secret      => 'IM7acyEhHBI5OlFzvmrrIg..',
+         p_transfer_timeout   => 10,
+         p_wallet_path        => 'file:/u01/wallet06082025',
+         p_wallet_pwd         => 'Prime#123456');
+   EXCEPTION
+      WHEN OTHERS
+      THEN
+         pErrorMessage := 'Token Authorization Error: ' || SQLERRM;
+         RAISE vMyException;
+   END;
+
+   vLToken := apex_web_service.oauth_get_last_token;
+
+   IF vLToken IS NULL
+   THEN
+      pErrorMessage := 'OAuth Token Not Found: ' || SQLERRM;
+      RAISE vMyException;
+   END IF; 
+
+   BEGIN
+      apex_web_service.g_request_headers (1).name := 'Content-Type';
+      apex_web_service.g_request_headers (1).VALUE := 'application/json';
+
+      apex_web_service.g_request_headers (2).name := 'Authorization';
+      apex_web_service.g_request_headers (2).VALUE := 'Bearer ' || vLToken;
+      l_response_body :=
+         APEX_WEB_SERVICE.MAKE_REST_REQUEST (
+            p_url                => vAuthUrl,
+            p_http_method        => 'POST',
+            p_transfer_timeout   => 60,
+            p_body               => vInputBody,
+            p_wallet_path        => 'file:/u01/wallet06082025',
+            p_wallet_pwd         => 'Prime#123456');
+
+      -- Parse the JSON response to get the access token
+      BEGIN
+         APEX_JSON.PARSE (l_response_body);
+         vToken := APEX_JSON.GET_VARCHAR2 (p_path => 'access_token');
+      EXCEPTION
+         WHEN OTHERS
+         THEN
+            pErrorMessage := 'MIS Data Retrieval API Error: ' || SQLERRM;
+            RAISE vMyException;
+      END;
+   EXCEPTION
+      WHEN OTHERS
+      THEN
+         pErrorMessage := 'Authorization Error: ' || SQLERRM;
+         RAISE vMyException;
+   END;
+
+   IF pErrorFlag = 'Y'
+   THEN
+      RAISE vMyException;
+   END IF;
+
+   BEGIN
+      APEX_JSON.PARSE (l_response_body);
+   --      vResCode := APEX_JSON.GET_VARCHAR2 (p_path => 'responseCode');
+   --      vResMsg := APEX_JSON.GET_VARCHAR2 (p_path => 'messages[1]');
+   --      vToken := APEX_JSON.GET_VARCHAR2 (p_path => 'data.accessToken');
+   EXCEPTION
+      WHEN OTHERS
+      THEN
+         pErrorMessage :=
+               'JSON Parsing Problem. - '
+            || SQLERRM
+            || 'vToken:'
+            || vToken
+            || ' vResCode:'
+            || vResCode
+            || ' vOutput:'
+            || vOutput;
+         RAISE vMyException;
+   END;
+
+   IF vResCode = '200'
+   THEN
+      pToken := vToken;
+   ELSE
+      pErrorMessage := 'CBS API Message: ' || vResCode || ': ' || vResMsg;
+      RAISE vMyException;
+   END IF;
+
+   BEGIN
+      EMOB.PBL_CBS_API.API_LOG (pFileId        => vReqId,
+                                pOprType       => 'MIS_DATA',
+                                pRefNo         => NULL,
+                                pDrAcNo        => NULL,
+                                pCrAcNo        => NULL,
+                                pInput         => vInputBody,
+                                pOutput        => l_response_body,
+                                pUser          => NULL,
+                                pRefStatus     => 'S',
+                                pAbsDocNo      => NULL,
+                                pAbsDocDate    => NULL,
+                                pLogId         => pLogId,
+                                pTranPointId   => NULL);
+   EXCEPTION
+      WHEN OTHERS
+      THEN
+         NULL;
+   END;
+EXCEPTION
+   WHEN vMyException
+   THEN
+      BEGIN
+         EMOB.PBL_CBS_API.API_LOG (pFileId        => vReqId,
+                                   pOprType       => 'MIS_DATA',
+                                   pRefNo         => NULL,
+                                   pDrAcNo        => NULL,
+                                   pCrAcNo        => NULL,
+                                   pInput         => vInputBody,
+                                   pOutput        => l_response_body,
+                                   pUser          => NULL,
+                                   pRefStatus     => 'F',
+                                   pAbsDocNo      => NULL,
+                                   pAbsDocDate    => NULL,
+                                   pLogId         => pLogId,
+                                   pTranPointId   => NULL);
+      EXCEPTION
+         WHEN OTHERS
+         THEN
+            NULL;
+      END;
+
+      pErrorFlag := 'Y';
+END;
