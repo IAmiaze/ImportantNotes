@@ -1,0 +1,17 @@
+CREATE OR REPLACE FUNCTION is_valid_json (p_json IN CLOB)
+    RETURN VARCHAR2
+IS
+BEGIN
+    DECLARE
+        v_json   JSON_ELEMENT_T;
+    BEGIN
+        v_json := JSON_ELEMENT_T.parse (p_json);
+    END;
+
+    RETURN '200';
+EXCEPTION
+    WHEN OTHERS
+    THEN
+        RETURN '400';
+END;
+/
