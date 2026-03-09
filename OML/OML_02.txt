@@ -1,0 +1,106 @@
+---------------------------------------------------------
+-- 1️⃣ Cleanup: Drop old model & settings if exists
+---------------------------------------------------------
+BEGIN
+  BEGIN
+    DBMS_DATA_MINING.DROP_MODEL('MB_TRANSACTION_FRAUD_MODEL');
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE MB_SETTINGS';
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  BEGIN
+    EXECUTE IMMEDIATE 'DROP VIEW VW_MB_FRAUD_TRAIN';
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+END;
+/
+---------------------------------------------------------
+
+---------------------------------------------------------
+-- 2️⃣ Create settings table for SVM
+---------------------------------------------------------
+CREATE TABLE MB_SETTINGS (
+    SETTING_NAME  VARCHAR2(30),
+    SETTING_VALUE VARCHAR2(4000)
+);
+
+BEGIN
+    -- Algorithm = SVM
+    INSERT INTO MB_SETTINGS VALUES (DBMS_DATA_MINING.ALGO_NAME, DBMS_DATA_MINING.ALGO_SUPPORT_VECTOR_MACHINES);
+
+    -- Automatic preprocessing ON
+    INSERT INTO MB_SETTINGS VALUES (DBMS_DATA_MINING.PREP_AUTO, DBMS_DATA_MINING.PREP_AUTO_ON);
+
+    -- Outlier rate 10%
+    INSERT INTO MB_SETTINGS VALUES (DBMS_DATA_MINING.SVMS_OUTLIER_RATE, '0.1');
+
+    -- Linear kernel
+    INSERT INTO MB_SETTINGS VALUES (DBMS_DATA_MINING.SVMS_KERNEL_FUNCTION, DBMS_DATA_MINING.SVMS_LINEAR);
+
+    COMMIT;
+END;
+/
+---------------------------------------------------------
+
+---------------------------------------------------------
+-- 3️⃣ Feature view: Last 6 months transactions
+---------------------------------------------------------
+CREATE OR REPLACE VIEW VW_MB_FRAUD_TRAIN AS
+SELECT
+    TRAN_ID,
+    AC_ID,
+    TRAN_AMOUNT AS TRAN_AMT_LC,
+    DR_AC_NO,
+    CR_AC_NO,
+    -- Hour of transaction
+    TO_NUMBER(TO_CHAR(SYSDATE,'HH24')) AS TXN_HOUR,
+    -- New device dummy
+    CASE WHEN DEVICE_ID IS NOT NULL THEN 1 ELSE 0 END AS NEW_DEVICE,
+    -- Transaction velocity dummy (for example)
+    1 AS TXN_VELOCITY
+FROM MB_TRANSACTION_SAMPLE
+WHERE TRAN_AMOUNT > 0;
+---------------------------------------------------------
+
+---------------------------------------------------------
+-- 4️⃣ Create SVM model
+---------------------------------------------------------
+BEGIN
+  DBMS_DATA_MINING.CREATE_MODEL(
+    MODEL_NAME            => 'MB_TRANSACTION_FRAUD_MODEL',
+    MINING_FUNCTION       => DBMS_DATA_MINING.CLASSIFICATION,
+    DATA_TABLE_NAME       => 'VW_MB_FRAUD_TRAIN',
+    CASE_ID_COLUMN_NAME   => 'TRAN_ID',
+    TARGET_COLUMN_NAME    => NULL,
+    SETTINGS_TABLE_NAME   => 'MB_SETTINGS'
+  );
+END;
+/
+---------------------------------------------------------
+
+---------------------------------------------------------
+-- 5️⃣ Predict fraud risk + assign STATUS
+---------------------------------------------------------
+SELECT
+    TRAN_ID,
+    AC_ID,
+    TRAN_AMT_LC AS TRAN_AMOUNT,
+    DR_AC_NO,
+    CR_AC_NO,
+
+    -- Risk score in %
+    ROUND(PREDICTION_PROBABILITY(MB_TRANSACTION_FRAUD_MODEL, 0 USING *)*100,2) AS FRAUD_RISK_SCORE,
+
+    -- Status based on risk
+    CASE
+        WHEN ROUND(PREDICTION_PROBABILITY(MB_TRANSACTION_FRAUD_MODEL, 0 USING *)*100,2) >= 70 THEN 'Fraud'
+        WHEN ROUND(PREDICTION_PROBABILITY(MB_TRANSACTION_FRAUD_MODEL, 0 USING *)*100,2) >= 40 THEN 'Review'
+        ELSE 'Normal'
+    END AS STATUS
+
+FROM VW_MB_FRAUD_TRAIN
+ORDER BY FRAUD_RISK_SCORE DESC;

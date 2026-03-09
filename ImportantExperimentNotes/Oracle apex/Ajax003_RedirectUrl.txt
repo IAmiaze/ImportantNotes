@@ -1,0 +1,106 @@
+/* Formatted on 2/10/2026 11:29:26 AM (QP5 v5.388) */
+DECLARE
+    vRedirectUrl       VARCHAR2 (1000);
+    vResponseCode      VARCHAR2 (50);
+    vResponseMessage   VARCHAR2 (500);
+    vErrorFlag         VARCHAR2 (1);
+    vErrorMessage      VARCHAR2 (1000);
+BEGIN
+    BEGIN
+        EMOB.PKG_FD_DPS_CLOSING.GET_DYNAMIC_SERVICE_URL (
+            pServiceCode       => :P902_SERVICE_CODE,
+            pAccountCIF        => :P902_CUSTOMER_CODE,
+            pAccountNumber     => :P902_AC_NO,
+            pSchemeCode        => :P902_SCHEME_CODE,
+            pAccountType       => :P902_SCHEME_TYPE,
+            pUserCustNo        => :AI_USER_CUST_NO,
+            pRunUser           => :APP_USER,
+            pSessionId         => :APP_SESSION,
+            pAgentPointId      => :AI_AGENT_POINT_ID,
+            pMobileNumber      => :P902_MOBILE_NO,
+            pCustAddress       => :P902_CUSTOMER_ADDRESS,
+            pResponseCode      => vResponseCode,
+            pResponseMessage   => vResponseMessage,
+            pRedirectUrl       => vRedirectUrl,
+            pErrorFlag         => vErrorFlag,
+            pErrorMessage      => vErrorMessage);
+    EXCEPTION
+        WHEN OTHERS
+        THEN
+            vErrorFlag := 'Y';
+            vErrorMessage := 'Process Calling Problem - ' || SQLERRM;
+    END;
+
+    apex_json.open_object;
+
+    IF NVL (vErrorFlag, 'N') = 'Y'
+    THEN
+        apex_json.write ('errorMessage', vErrorMessage);
+        apex_json.write ('getUrl', '');
+    ELSE
+        apex_json.write ('errorMessage', '');
+        apex_json.write ('getUrl', vRedirectUrl);
+    END IF;
+
+    apex_json.close_object;
+END;
+
+
+let fdWindows = {};
+
+function openFDServiceUrl() {
+    const serviceCode = $v("P902_SERVICE_CODE");
+    const popup = apex.widget.waitPopup();
+
+    apex.server.process(
+        "GET_DYNAMIC_SERVICE_URL",
+        { pageItems: "#P902_SERVICE_CODE,#P902_AC_NO,#P902_MOBILE_NO,#P902_CUSTOMER_ADDRESS,#P902_CUSTOMER_CODE,#P902_SCHEME_CODE,#P902_SCHEME_TYPE" },
+        {
+            dataType: "json",
+            success: function(pData) {
+                if (popup) popup.remove();
+
+                const errMsg = pData.errorMessage || "";
+                const url = pData.getUrl;
+
+                if (url && url !== "") {
+                    // close previous tab for this service code safely
+                    if (fdWindows[serviceCode] && !fdWindows[serviceCode].closed) {
+                        try { fdWindows[serviceCode].close(); } catch (e) {}
+                    }
+
+                    // open new tab and store reference
+                    fdWindows[serviceCode] = window.open(url, "_blank");
+
+                    // reload current page after opening new tab
+                    setTimeout(() => apex.submit(), 1000);
+                } else {
+                    apex.message.clearErrors();
+                    apex.message.showErrors([{
+                        type: "error",
+                        location: "page",
+                        message: errMsg || "Unknown error",
+                        unsafe: false
+                    }]);
+                }
+            },
+            error: function(jqXHR) {
+                if (popup) popup.remove();
+
+                let errorMessage = "Failed to call server process.";
+                try {
+                    const resp = JSON.parse(jqXHR.responseText);
+                    if (resp && resp.errorMessage) errorMessage = resp.errorMessage;
+                } catch (e) {}
+
+                apex.message.clearErrors();
+                apex.message.showErrors([{
+                    type: "error",
+                    location: "page",
+                    message: errorMessage,
+                    unsafe: false
+                }]);
+            }
+        }
+    );
+}
