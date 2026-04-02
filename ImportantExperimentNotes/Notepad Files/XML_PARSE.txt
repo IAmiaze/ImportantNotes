@@ -1,0 +1,39 @@
+DECLARE
+  v_xml_data XMLTYPE;
+BEGIN
+  -- 1. Fetch the XML
+  SELECT DBMS_XMLGEN.GETXMLTYPE('SELECT xml_cfile FROM TM_MS_XML_LOAD_FILE WHERE file_id = 373')
+  INTO v_xml_data
+  FROM DUAL;
+
+  -- 2. Nested XMLTABLE: One for the Entity, one for its Aliases
+  FOR rec IN (
+    SELECT ent.logical_id,
+           ent.eu_ref_number,
+           als.alias_name,
+           als.is_strong
+    FROM XMLTABLE('//sanctionEntity'
+           PASSING v_xml_data
+           COLUMNS 
+             logical_id     NUMBER    PATH '@logicalId',
+             eu_ref_number  VARCHAR2(100) PATH '@euReferenceNumber',
+             alias_list     XMLTYPE   PATH 'nameAlias' -- Pass the chunk of names
+         ) ent,
+         XMLTABLE('/nameAlias'
+           PASSING ent.alias_list
+           COLUMNS
+             alias_name     VARCHAR2(1000) PATH '@wholeName',
+             is_strong      VARCHAR2(10)   PATH '@strong'
+         ) als
+  ) LOOP
+    
+    DBMS_OUTPUT.PUT_LINE('ID: ' || rec.logical_id || ' | Name: ' || rec.alias_name);
+    
+  END LOOP;
+
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('Fatal Error: ' || SQLERRM);
+END;
+/
+ 

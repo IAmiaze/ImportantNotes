@@ -1,0 +1,63 @@
+Using WHEN OTHERS THEN NULL to Handle Exceptions
+I used to think this was a clever way to prevent my application from crashing. If something goes wrong, just catch it silently and move on. What could go wrong, right?
+
+Everything. Everything can go wrong.
+
+When you write WHEN OTHERS THEN NULL, you are telling Oracle to swallow every single error that happens and pretend nothing occurred. So if a transaction fails halfway through because of a constraint violation, your application keeps running as if everything was fine. The data is now corrupted and you have absolutely no record of what happened or why.
+
+I learned this lesson the hard way when a batch job was silently failing for three days and nobody noticed until a user reported missing records. Tracking that issue down with no error logs was a nightmare.
+
+The wrong way:
+
+EXCEPTION
+  WHEN OTHERS THEN
+    NULL; -- Error is gone forever
+END;
+
+The right way:
+
+EXCEPTION
+  WHEN OTHERS THEN
+    v_err_code := SQLCODE;
+    v_err_msg  := SQLERRM;
+    log_error_to_table(v_err_code, v_err_msg, 'YOUR_PROC_NAME');
+    RAISE; -- Tell the calling application something went wrong
+END;
+
+
+Mistake 3: Building Dynamic SQL by Concatenating Variables
+When I needed to build a dynamic query, I would just concatenate the variable directly into the SQL string. It worked perfectly in development. But this habit causes two serious problems in production.
+
+The first problem is performance. Every time the variable value changes, Oracle sees it as a brand new query and has to build a completely fresh execution plan. This is called hard parsing and it wastes CPU time on every single execution. At high traffic, this slows down the entire database for every user connected to it.
+
+The second problem is security. Concatenating user input directly into SQL opens the door to SQL injection attacks. A malicious user can manipulate your query logic to expose or even delete your data.
+
+The wrong way:
+
+v_sql := 'SELECT name FROM emp WHERE id = ' || v_user_input;
+EXECUTE IMMEDIATE v_sql INTO v_name;
+The right way using bind variables:
+
+v_sql := 'SELECT name FROM emp WHERE id = :1';
+EXECUTE IMMEDIATE v_sql INTO v_name USING v_user_input;
+
+Mistake 5: Writing Custom Logic When Oracle Already Has a Built-in for It
+Early in my career I spent days writing a custom string parsing function from scratch. It worked, but it was slow and hard to maintain. A senior colleague looked at it and asked why I did not just use REGEXP_SUBSTR. My entire custom function became two lines.
+
+That moment taught me something important. Oracle has been around for decades and the built-in packages that come with it are written in low-level optimized code. Your custom PL/SQL logic will almost never be as efficient as what Oracle already provides out of the box.
+
+Packages like DBMS_UTILITY, UTL_FILE, DBMS_SCHEDULER, and DBMS_LOB cover a massive range of tasks including string manipulation, file handling, job scheduling, and date calculations. The best thing you can do as a junior developer is spend time going through the Oracle documentation and AskTom before you write anything from scratch.
+
+
+DECLARE
+  l_start NUMBER;
+  l_end   NUMBER;
+BEGIN
+  l_start := DBMS_UTILITY.GET_TIME;
+  
+  -- Your heavy processing logic here
+  FOR i IN 1..100000 LOOP NULL; END LOOP;
+  
+  l_end := DBMS_UTILITY.GET_TIME;
+  DBMS_OUTPUT.PUT_LINE('Execution Time: ' || (l_end - l_start)/100 || ' seconds');
+END;

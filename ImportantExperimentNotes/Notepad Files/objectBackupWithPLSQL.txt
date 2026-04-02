@@ -1,0 +1,116 @@
+DROP TABLE EMOB.OBJECT_VERSION_HISTORY CASCADE CONSTRAINTS;
+ 
+CREATE TABLE EMOB.OBJECT_VERSION_HISTORY
+(
+  OBJECT_NAME   VARCHAR2(128 BYTE),
+  OBJECT_TYPE   VARCHAR2(23 BYTE),
+  VERSION_DATE  DATE                            DEFAULT SYSDATE,
+  DDL_CONTENT   CLOB,
+  LAST_DDL_BY   VARCHAR2(1024 BYTE),
+  REMOTE_IP     VARCHAR2(3000 BYTE)
+)
+LOB (DDL_CONTENT) STORE AS SECUREFILE (
+  TABLESPACE  AGENTS
+  ENABLE      STORAGE IN ROW
+  CHUNK       8192
+  RETENTION
+  NOCACHE
+  LOGGING
+  STORAGE    (
+              INITIAL          104K
+              NEXT             1M
+              MINEXTENTS       1
+              MAXEXTENTS       UNLIMITED
+              PCTINCREASE      0
+              BUFFER_POOL      DEFAULT
+             ))
+TABLESPACE AGENTS
+PCTFREE    10
+INITRANS   1
+MAXTRANS   255
+STORAGE    (
+            INITIAL          64K
+            NEXT             1M
+            MINEXTENTS       1
+            MAXEXTENTS       UNLIMITED
+            PCTINCREASE      0
+            BUFFER_POOL      DEFAULT
+           )
+LOGGING 
+NOCOMPRESS 
+NOCACHE;
+ 
+ 
+CREATE UNIQUE INDEX EMOB.PK_OBJ_VERSION ON EMOB.OBJECT_VERSION_HISTORY
+(OBJECT_NAME, OBJECT_TYPE, VERSION_DATE)
+LOGGING
+TABLESPACE AGENTS
+PCTFREE    10
+INITRANS   2
+MAXTRANS   255
+STORAGE    (
+            INITIAL          64K
+            NEXT             1M
+            MINEXTENTS       1
+            MAXEXTENTS       UNLIMITED
+            PCTINCREASE      0
+            BUFFER_POOL      DEFAULT
+           );
+ 
+ALTER TABLE EMOB.OBJECT_VERSION_HISTORY ADD (
+  CONSTRAINT PK_OBJ_VERSION
+  PRIMARY KEY
+  (OBJECT_NAME, OBJECT_TYPE, VERSION_DATE)
+  USING INDEX EMOB.PK_OBJ_VERSION
+  ENABLE VALIDATE);
+
+
+CREATE OR REPLACE PROCEDURE sync_changed_objects_backup AS
+    l_ddl CLOB;
+BEGIN
+    DBMS_METADATA.SET_TRANSFORM_PARAM(DBMS_METADATA.SESSION_TRANSFORM, 'DEFAULT');
+    DBMS_METADATA.SET_TRANSFORM_PARAM(DBMS_METADATA.SESSION_TRANSFORM, 'PRETTY', TRUE);
+    DBMS_METADATA.SET_TRANSFORM_PARAM(DBMS_METADATA.SESSION_TRANSFORM, 'SQLTERMINATOR', TRUE);
+
+    FOR rec IN (
+        SELECT object_name, object_type, last_ddl_time
+        FROM user_objects o
+        WHERE object_type IN ('PACKAGE', 'PACKAGE BODY', 'TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION', 'TRIGGER')
+          AND object_name NOT LIKE 'BIN$%' 
+          AND NOT EXISTS (
+              SELECT 1 
+              FROM OBJECT_VERSION_HISTORY h
+              WHERE h.object_name = o.object_name
+                AND h.object_type = o.object_type
+                AND h.version_date = o.last_ddl_time
+          )
+    ) LOOP
+        BEGIN
+            l_ddl := DBMS_METADATA.GET_DDL(REPLACE(rec.object_type, ' ', '_'), rec.object_name);
+            
+            INSERT INTO OBJECT_VERSION_HISTORY (object_name, object_type, version_date, ddl_content,last_ddl_by,remote_ip)
+            VALUES (rec.object_name, rec.object_type, rec.last_ddl_time, l_ddl,SYS_CONTEXT('USERENV', 'SESSION_USER'),SYS_CONTEXT('USERENV', 'IP_ADDRESS'));
+            
+            COMMIT; -- Commit after each successful extraction for safety
+        EXCEPTION
+            WHEN OTHERS THEN
+                DBMS_OUTPUT.PUT_LINE('Error on ' || rec.object_name || ' (' || rec.object_type || '): ' || SQLERRM);
+        END;
+    END LOOP;
+END;
+/
+
+BEGIN
+    DBMS_SCHEDULER.CREATE_JOB (
+        job_name        => 'DAILY_OBJECT_BACKUP_JOB',
+        job_type        => 'STORED_PROCEDURE',
+        job_action      => 'sync_changed_objects_backup',
+        start_date      => SYSTIMESTAMP,
+        repeat_interval => 'FREQ=DAILY; BYHOUR=2; BYMINUTE=0; BYSECOND=0',
+        enabled         => TRUE,
+        comments        => 'Backs up DDL for objects changed in the last 24 hours'
+    );
+END;
+/
+
+ 
