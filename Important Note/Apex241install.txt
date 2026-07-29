@@ -5,7 +5,7 @@ CREATE TABLESPACE APEX241 DATAFILE 'C:\APPP\DataBase\oradata\ORCL\APEX321.dbf' S
 @apexins.sql APEX241 APEX241 TEMP /i/
 @apxchpwd.sql
 
-Pa$$word!11
+apex26@miaze
 
 ALTER USER anonymous ACCOUNT UNLOCK;
 alter user APEX_PUBLIC_USER identified by APEX241 account unlock;
@@ -37,8 +37,13 @@ java -jar ords.war --config   uninstall
 
 C:\APPP\Apex\apex_24.1\apex\images
 
-reset_image_prefix_con.sql
+@reset_image_prefix_con.sql
 
 @apxremov.sql
 
 Tomcat_mw.exe --> Java---> -Dconfig.url=C:\APPP\Apex\ORDS\ORACLE_ORDS\config\
+
+Bank Asia Global UAT	192.168.157.22:1521/EMOB	Instant Client - 11.2.0.4	5/17/2026 11:39:45 AM	NORMAL	False	False	False	clBlue		Direct
+
+
+Was!f#2026

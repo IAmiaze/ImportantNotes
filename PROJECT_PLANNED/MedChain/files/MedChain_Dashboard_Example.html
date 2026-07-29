@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedChain - Executive Dashboard</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ===== CSS VARIABLES ===== */
+        :root {
+            /* Colors */
+            --primary-900: #0A2540;
+            --primary-700: #1565C0;
+            --primary-500: #2196F3;
+            --primary-300: #64B5F6;
+            --primary-100: #E3F2FD;
+            
+            --secondary-700: #2E7D32;
+            --secondary-500: #4CAF50;
+            --secondary-300: #81C784;
+            
+            --accent-warning: #FF6B35;
+            --accent-critical: #E53935;
+            --accent-expired: #9C27B0;
+            
+            --gray-900: #1A1A1A;
+            --gray-700: #424242;
+            --gray-500: #757575;
+            --gray-300: #BDBDBD;
+            --gray-200: #E0E0E0;
+            --gray-100: #F5F5F5;
+            --gray-50: #FAFAFA;
+            
+            /* Fonts */
+            --font-display: 'Playfair Display', serif;
+            --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-data: 'Inter', sans-serif;
+            
+            /* Spacing */
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-12: 48px;
+        }
+        
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-body);
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--gray-900);
+            background: var(--gray-50);
+            overflow-x: hidden;
+        }
+        
+        /* Background Effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(33, 150, 243, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(76, 175, 80, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        /* ===== LAYOUT ===== */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            grid-template-rows: 64px 1fr;
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            grid-row: 1 / -1;
+            background: var(--primary-900);
+            color: white;
+            padding: var(--space-6);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        .logo {
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: var(--space-8);
+            position: relative;
+        }
+        
+        .logo-icon {
+            display: inline-block;
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--secondary-500), var(--primary-500));
+            border-radius: 8px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        .nav {
+            margin-top: var(--space-8);
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+            position: relative;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 24px;
+            background: var(--secondary-500);
+            border-radius: 0 2px 2px 0;
+        }
+        
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            opacity: 0.9;
+        }
+        
+        .nav-badge {
+            margin-left: auto;
+            background: var(--accent-critical);
+            color: white;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-family: var(--font-data);
+        }
+        
+        /* ===== HEADER ===== */
+        .header {
+            grid-column: 2;
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 0 var(--space-8);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .search-bar {
+            display: flex;
+            align-items: center;
+            background: var(--gray-100);
+            border-radius: 24px;
+            padding: 8px 16px;
+            width: 400px;
+            transition: all 0.3s ease;
+        }
+        
+        .search-bar:focus-within {
+            background: white;
+            box-shadow: 0 0 0 2px var(--primary-300);
+        }
+        
+        .search-bar input {
+            border: none;
+            background: none;
+            outline: none;
+            flex: 1;
+            margin-left: 8px;
+            font-family: var(--font-body);
+        }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gray-100);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .icon-btn:hover {
+            background: var(--gray-200);
+            transform: scale(1.05);
+        }
+        
+        .icon-btn.has-notification::after {
+            content: '';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-critical);
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-500), var(--secondary-500));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        /* ===== MAIN CONTENT ===== */
+        .main-content {
+            grid-column: 2;
+            padding: var(--space-8);
+            overflow-y: auto;
+        }
+        
+        .page-header {
+            margin-bottom: var(--space-8);
+        }
+        
+        .page-title {
+            font-family: var(--font-display);
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--primary-900);
+            margin-bottom: 8px;
+        }
+        
+        .page-subtitle {
+            color: var(--gray-700);
+            font-size: 16px;
+        }
+        
+        /* ===== KPI CARDS ===== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-6);
+            margin-bottom: var(--space-8);
+        }
+        
+        .kpi-card {
+            background: white;
+            border-radius: 16px;
+            padding: var(--space-6);
+            box-shadow: 
+                0 1px 3px rgba(0, 0, 0, 0.05),
+                0 10px 15px -3px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease-out backwards;
+        }
+        
+        .kpi-card:nth-child(1) { animation-delay: 0.1s; }
+        .kpi-card:nth-child(2) { animation-delay: 0.2s; }
+        .kpi-card:nth-child(3) { animation-delay: 0.3s; }
+        .kpi-card:nth-child(4) { animation-delay: 0.4s; }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-500), var(--secondary-500));
+        }
+        
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 
+                0 4px 6px rgba(0, 0, 0, 0.07),
+                0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .kpi-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--primary-100);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 24px;
+        }
+        
+        .kpi-label {
+            font-size: 14px;
+            color: var(--gray-700);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: var(--font-data);
+            color: var(--primary-900);
+            margin-bottom: 12px;
+        }
+        
+        .kpi-trend {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+        }
+        
+        .trend-up {
+            color: var(--secondary-700);
+        }
+        
+        .trend-icon {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .trend-value {
+            font-weight: 600;
+            font-family: var(--font-data);
+        }
+        
+        .trend-label {
+            color: var(--gray-500);
+        }
+        
+        /* ===== CHARTS SECTION ===== */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: var(--space-6);
+            margin-bottom: var(--space-8);
+        }
+        
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: var(--space-6);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-6);
+        }
+        
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+        
+        .chart-placeholder {
+            height: 300px;
+            background: linear-gradient(180deg, var(--primary-100) 0%, white 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray-500);
+            font-style: italic;
+        }
+        
+        /* ===== ALERTS TABLE ===== */
+        .alerts-section {
+            background: white;
+            border-radius: 16px;
+            padding: var(--space-6);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-6);
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+        
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid;
+            transition: all 0.2s ease;
+        }
+        
+        .alert-item:hover {
+            background: var(--gray-50);
+            transform: translateX(4px);
+        }
+        
+        .alert-item.critical {
+            border-left-color: var(--accent-critical);
+            background: linear-gradient(90deg, #FFEBEE 0%, white 100%);
+        }
+        
+        .alert-item.warning {
+            border-left-color: var(--accent-warning);
+            background: linear-gradient(90deg, #FFF3E0 0%, white 100%);
+        }
+        
+        .alert-icon-wrapper {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .alert-item.critical .alert-icon-wrapper {
+            background: #FFCDD2;
+        }
+        
+        .alert-item.warning .alert-icon-wrapper {
+            background: #FFE0B2;
+        }
+        
+        .alert-content {
+            flex: 1;
+        }
+        
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--gray-900);
+        }
+        
+        .alert-message {
+            font-size: 14px;
+            color: var(--gray-700);
+        }
+        
+        .alert-time {
+            font-size: 12px;
+            color: var(--gray-500);
+            font-family: var(--font-data);
+        }
+        
+        /* ===== STATUS BADGES ===== */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: var(--font-data);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-active {
+            background: #E8F5E9;
+            color: #2E7D32;
+            border: 1px solid #81C784;
+        }
+        
+        .status-warning {
+            background: #FFF3E0;
+            color: #E65100;
+            border: 1px solid #FFB74D;
+        }
+        
+        .status-critical {
+            background: #FFEBEE;
+            color: #C62828;
+            border: 1px solid #EF5350;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* ===== BUTTONS ===== */
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-family: var(--font-body);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--primary-500);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-700);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: var(--primary-700);
+            border: 1px solid var(--gray-300);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--gray-50);
+            border-color: var(--primary-500);
+        }
+        
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                display: none;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .search-bar {
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon"></span>
+                MedChain
+            </div>
+            
+            <nav class="nav">
+                <a href="#" class="nav-item active">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">💊</span>
+                    Inventory
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">🔗</span>
+                    Supply Chain
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📋</span>
+                    Prescriptions
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">⚠️</span>
+                    Alerts
+                    <span class="nav-badge">12</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📈</span>
+                    Analytics
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    Settings
+                </a>
+            </nav>
+        </aside>
+        
+        <!-- Header -->
+        <header class="header">
+            <div class="search-bar">
+                <span>🔍</span>
+                <input type="text" placeholder="Search medicines, batches, prescriptions...">
+            </div>
+            
+            <div class="header-actions">
+                <button class="icon-btn has-notification">🔔</button>
+                <button class="icon-btn">💬</button>
+                <div class="user-avatar">DR</div>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <h1 class="page-title">Executive Dashboard</h1>
+                <p class="page-subtitle">Welcome back, Dr. Rahman • Tuesday, January 27, 2026</p>
+            </div>
+            
+            <!-- KPI Cards -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon">💰</div>
+                    <div class="kpi-label">Total Inventory Value</div>
+                    <div class="kpi-value">৳12,45,678</div>
+                    <div class="kpi-trend trend-up">
+                        <span class="trend-icon">↗</span>
+                        <span class="trend-value">12.5%</span>
+                        <span class="trend-label">vs last month</span>
+                    </div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-icon">⏰</div>
+                    <div class="kpi-label">Near Expiry</div>
+                    <div class="kpi-value">145</div>
+                    <div class="kpi-trend">
+                        <span class="status-badge status-warning">30-90 days</span>
+                    </div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-icon">📦</div>
+                    <div class="kpi-label">Out of Stock</div>
+                    <div class="kpi-value">23</div>
+                    <div class="kpi-trend">
+                        <span class="status-badge status-critical">Action Needed</span>
+                    </div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-icon">🚨</div>
+                    <div class="kpi-label">Active Alerts</div>
+                    <div class="kpi-value">12</div>
+                    <div class="kpi-trend">
+                        <span class="status-badge status-active">3 Critical</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Inventory Value Trend</h3>
+                        <button class="btn btn-secondary">Last 30 Days</button>
+                    </div>
+                    <div class="chart-placeholder">
+                        📈 Area Chart: Inventory value over time
+                    </div>
+                </div>
+                
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Stock Status</h3>
+                    </div>
+                    <div class="chart-placeholder">
+                        🥧 Donut Chart: Stock by status
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Alerts Section -->
+            <div class="alerts-section">
+                <div class="section-header">
+                    <h3 class="section-title">Critical Alerts</h3>
+                    <button class="btn btn-primary">View All Alerts</button>
+                </div>
+                
+                <div class="alert-item critical">
+                    <div class="alert-icon-wrapper">⚠️</div>
+                    <div class="alert-content">
+                        <div class="alert-title">Medicine Batch Expiring Soon</div>
+                        <div class="alert-message">Paracetamol 500mg (Batch: A12345) expires in 7 days. Quantity: 500 units</div>
+                        <div class="alert-time">2 hours ago</div>
+                    </div>
+                    <button class="btn btn-secondary">Take Action</button>
+                </div>
+                
+                <div class="alert-item warning">
+                    <div class="alert-icon-wrapper">📦</div>
+                    <div class="alert-content">
+                        <div class="alert-title">Stock Below Reorder Level</div>
+                        <div class="alert-message">Amoxicillin 250mg stock at Main Warehouse below reorder level (50 units)</div>
+                        <div class="alert-time">5 hours ago</div>
+                    </div>
+                    <button class="btn btn-secondary">Reorder</button>
+                </div>
+                
+                <div class="alert-item critical">
+                    <div class="alert-icon-wrapper">🌡️</div>
+                    <div class="alert-content">
+                        <div class="alert-title">Temperature Breach Detected</div>
+                        <div class="alert-message">Cold Storage Unit 2 temperature exceeded 10°C. Check insulin and vaccines immediately.</div>
+                        <div class="alert-time">1 hour ago</div>
+                    </div>
+                    <button class="btn btn-primary">Investigate</button>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

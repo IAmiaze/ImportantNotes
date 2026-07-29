@@ -1,0 +1,11 @@
+---Fetching Repos without Error
+
+git fetch --all --prune && git pull --rebase
+
+permananet setting----
+
+git config --global fetch.prune true
+git config --global pull.rebase true
+
+
+ git push --set-upstream origin @dev/miaze

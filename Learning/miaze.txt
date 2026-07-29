@@ -1,0 +1,216 @@
+/* Formatted on 11/27/2024 12:42:12 PM (QP5 v5.388) */
+DECLARE
+    v_ws_id          apex_workspaces.workspace_id%TYPE;
+    vUserId          NUMBER;
+
+    TYPE UserDataRec IS RECORD
+    (
+        line_number        NUMBER,
+        user_code          VARCHAR2 (4000),
+        full_name          VARCHAR2 (4000),
+        dob                VARCHAR2 (4000),
+        mobile             VARCHAR2 (4000),
+        email              VARCHAR2 (4000),
+        branch             VARCHAR2 (4000),
+        designation        VARCHAR2 (4000),
+        branch_opr_type    VARCHAR2 (4000),
+        role               VARCHAR2 (4000)
+    );
+
+    TYPE UserDataTab IS TABLE OF UserDataRec
+        INDEX BY VARCHAR2 (100);
+
+
+    TYPE BranchRec IS RECORD
+    (
+        branch_code    VARCHAR2 (4)
+    );
+
+    TYPE BranchCodeTable IS TABLE OF BranchRec
+        INDEX BY VARCHAR2 (4);
+
+    TYPE UserCode IS RECORD
+    (
+        user_code    VARCHAR2 (100)
+    );
+
+
+    TYPE UserCodeTable IS TABLE OF UserCode
+        INDEX BY VARCHAR2 (100);
+
+
+
+    TYPE User_data_type IS RECORD
+    (
+        USER_ID              NUMBER,
+        USER_CODE            VARCHAR2 (20 BYTE),
+        USER_NAME            VARCHAR2 (100 BYTE),
+        USER_PWD             VARCHAR2 (50 BYTE),
+        USER_STS             VARCHAR2 (1 BYTE) DEFAULT 'A',
+        USER_DOB             DATE,
+        MOBILE_NO            VARCHAR2 (15 BYTE),
+        EMAIL_ID             VARCHAR2 (50 BYTE),
+        LOGON_PASS_CHANGE    VARCHAR2 (1 BYTE),
+        BRANCH_CODE          VARCHAR2 (4 BYTE),
+        CREATE_BY            VARCHAR2 (50 BYTE),
+        CREATE_DATE          DATE,
+        AUTH_BY              VARCHAR2 (50 BYTE),
+        AUTH_DATE            DATE
+    );
+
+    TYPE User_data_table IS TABLE OF User_data_type
+        INDEX BY PLS_INTEGER;
+
+    v_user_data      User_data_table;
+
+    vUserDataTab     UserDataTab;
+
+    vUserRoleExist   NUMBER;
+    vErrorMessage    VARCHAR2 (1024);
+    vBranchExist     VARCHAR2 (100);
+    vExists          NUMBER;
+    vBranchCodes     BranchCodeTable;
+    vUserCodes       UserCodeTable;
+    vMyException     EXCEPTION;
+    idx              VARCHAR2 (100);
+BEGIN
+    SELECT MAX (workspace_id)
+      INTO v_ws_id
+      FROM apex_applications
+     WHERE application_id = 106;
+
+    IF APEX_COLLECTION.COLLECTION_EXISTS ('USER_ERROR')
+    THEN
+        APEX_COLLECTION.TRUNCATE_COLLECTION ('USER_ERROR');
+    END IF;
+
+    wwv_flow_api.set_security_group_id (v_ws_id);
+
+    APEX_APPLICATION.g_flow_id := 106;
+
+    APEX_APPLICATION.g_instance := 693160320463;
+
+    FOR i
+        IN (SELECT BRANCH_CODE
+             -- BULK COLLECT INTO vBranchCodes
+             FROM JSON_TABLE (
+                      GUMS.PKG_FETCH_FROM_REST.PRC_API_CALL_EMOB_REST_ENABLED_SQL (
+                          'SELECT BRANCH_CODE BRANCH_CODE FROM EMOB.MB_BRANCH_MST'),
+                      '$.items[0].resultSet.items[*]'
+                      COLUMNS (BRANCH_CODE NUMBER PATH '$.branch_code')))
+    LOOP
+        -- -- This Will support only 19c Database
+        vBranchCodes (i.branch_code) := BranchRec (i.branch_code);
+    END LOOP;
+
+
+    FOR i IN (  SELECT n001            AS LINE_NO,
+                       TRIM (c001)     AS USER_CODE,
+                       TRIM (c002)     AS FULL_NAME,
+                       TRIM (c003)     AS DOB,
+                       TRIM (c004)     AS MOBILE,
+                       TRIM (c005)     AS EMAIL,
+                       TRIM (c006)     AS BRANCH,
+                       TRIM (c007)     AS DESIGNATION,
+                       TRIM (c008)     AS BRANCH_OPR_TYPE,
+                       TRIM (c009)     AS ROLE
+                  -- BULK COLLECT INTO vUserDataTab
+                  FROM APEX_COLLECTIONS
+                 WHERE COLLECTION_NAME = 'USER_DATA'
+              ORDER BY n001)
+    LOOP
+        -- This Will support only 19c Database
+        vUserDataTab (i.user_code) :=
+            UserDataRec (i.LINE_NO,
+                         i.USER_CODE,
+                         i.FULL_NAME,
+                         i.DOB,
+                         i.MOBILE,
+                         i.EMAIL,
+                         i.BRANCH,
+                         i.DESIGNATION,
+                         i.BRANCH_OPR_TYPE,
+                         i.ROLE);
+    END LOOP;
+
+    FOR i IN (  SELECT user_code
+                  FROM GUMS.MB_USER_MST
+              ORDER BY user_code)
+    LOOP
+        vUserCodes (i.user_code) := UserCode (i.user_code);
+    END LOOP;
+
+    BEGIN
+        SELECT MAX (USER_ID) INTO vUserId FROM GUMS.MB_USER_MST;
+    EXCEPTION
+        WHEN OTHERS
+        THEN
+            vUserId := 1;
+    END;
+
+    idx := vUserDataTab.FIRST;
+
+    WHILE idx IS NOT NULL
+    LOOP
+        IF vBranchCodes.EXISTS (vUserDataTab (idx).branch)
+        THEN
+            vUserId := vUserId + 1;
+
+            v_user_data (vUserId) :=
+                User_data_type (
+                    USER_ID             => vUserId,
+                    USER_CODE           => vUserDataTab (idx).user_code,
+                    USER_NAME           => vUserDataTab (idx).full_name,
+                    USER_PWD            => GUMS.DPK_SECURITY.DFN_CREATE_PASSWORD_ENCRYPTED (UPPER (vUserDataTab (idx).user_code) || vUserId,123456),
+                    USER_STS            => 'A',
+                    USER_DOB            => TO_DATE (vUserDataTab (idx).dob, 'YYYY-MM-DD'),
+                    MOBILE_NO           => vUserDataTab (idx).mobile,
+                    EMAIL_ID            => vUserDataTab (idx).email,
+                    LOGON_PASS_CHANGE   => 'N',
+                    BRANCH_CODE         => vUserDataTab (idx).branch,
+                    CREATE_BY           => 'MEX',
+                    CREATE_DATE         => SYSDATE,
+                    AUTH_BY             => 'MEX',
+                    AUTH_DATE           => SYSDATE);
+
+            DBMS_OUTPUT.put_line (
+                'User Data Assigned for: ' || vUserDataTab (idx).user_code);
+        ELSE
+            DBMS_OUTPUT.put_line (
+                'Branch not found for: ' || vUserDataTab (idx).user_code);
+        END IF;
+
+        idx := vUserDataTab.NEXT (idx);
+    END LOOP;
+
+    FORALL i IN INDICES OF v_user_data
+        INSERT INTO GUMS.MB_USER_MST (USER_ID,
+                                      USER_CODE,
+                                      USER_NAME,
+                                      USER_PWD,
+                                      USER_STS,
+                                      USER_DOB,
+                                      MOBILE_NO,
+                                      EMAIL_ID,
+                                      LOGON_PASS_CHANGE,
+                                      BRANCH_CODE,
+                                      CREATE_BY,
+                                      CREATE_DATE,
+                                      AUTH_BY,
+                                      AUTH_DATE)
+             VALUES (v_user_data (i).USER_ID,
+                     v_user_data (i).USER_CODE,
+                     v_user_data (i).USER_NAME,
+                     v_user_data (i).USER_PWD,
+                     v_user_data (i).USER_STS,
+                     v_user_data (i).USER_DOB,
+                     v_user_data (i).MOBILE_NO,
+                     v_user_data (i).EMAIL_ID,
+                     v_user_data (i).LOGON_PASS_CHANGE,
+                     v_user_data (i).BRANCH_CODE,
+                     v_user_data (i).CREATE_BY,
+                     v_user_data (i).CREATE_DATE,
+                     v_user_data (i).AUTH_BY,
+                     v_user_data (i).AUTH_DATE);
+END;
+/

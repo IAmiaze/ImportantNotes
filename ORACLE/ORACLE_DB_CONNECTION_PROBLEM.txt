@@ -1,0 +1,579 @@
+# Oracle XE 21c Connection Troubleshooting & Resolution Document
+
+**Environment**
+
+* **OS:** Windows 10
+* **Oracle Database:** Oracle Database 21c Express Edition (XE)
+* **SQL*Plus Version:** 21.3
+* **PDB:** XEPDB1
+* **Listener Port:** 1521
+
+---
+
+# Problem Summary
+
+Initially the following errors were encountered:
+
+```text
+ORA-12154: TNS:could not resolve the connect identifier specified
+```
+
+```text
+ORA-01017: invalid username/password; logon denied
+```
+
+```text
+ORA-12514: TNS:listener does not currently know of service requested in connect descriptor
+```
+
+Although:
+
+* OracleServiceXE was running.
+* XEPDB1 database was actually open.
+
+The issue was caused by **multiple configuration problems**, not a database failure.
+
+---
+
+# Step 1 - Verify Oracle Environment
+
+Checked Oracle environment variables.
+
+```cmd
+echo %ORACLE_HOME%
+echo %TNS_ADMIN%
+echo %PATH%
+
+where sqlplus
+where tnsping
+```
+
+### Result
+
+```
+ORACLE_HOME
+C:\app\user\product\21c\dbhomeXE
+
+TNS_ADMIN
+C:\app\user\product\21c\homes\OraDB21Home1\NETWORK\ADMIN
+```
+
+Confirmed SQL*Plus and tnsping were using the correct Oracle Home.
+
+---
+
+# Step 2 - Test TNS Resolution
+
+Executed
+
+```cmd
+tnsping XEPDB1
+```
+
+Result
+
+```
+TNS-03505
+Failed to resolve name
+```
+
+Meaning Oracle could not resolve the service name.
+
+---
+
+# Step 3 - Inspect sqlnet.ora
+
+Found:
+
+```text
+NAMES.DIRECTORY_PATH=(TNSNAMES,EZCONNECT)
+
+NAMES.DIRECTORY_PATH=(none)
+```
+
+Oracle always uses the **last occurrence**.
+
+Therefore Oracle was effectively using
+
+```text
+NAMES.DIRECTORY_PATH=(NONE)
+```
+
+which disables
+
+* TNSNAMES
+* EZCONNECT
+
+---
+
+## Fix
+
+Commented out
+
+```text
+#NAMES.DIRECTORY_PATH=(none)
+```
+
+After reopening Command Prompt:
+
+```cmd
+tnsping XEPDB1
+```
+
+returned
+
+```
+OK
+```
+
+---
+
+# Step 4 - Verify Listener
+
+Executed
+
+```cmd
+lsnrctl status
+```
+
+Listener showed only
+
+```
+Service CLRExtProc
+```
+
+Missing
+
+```
+XE
+XEPDB1
+```
+
+Meaning
+
+Database services were **not registered** with the listener.
+
+---
+
+# Step 5 - Verify Database Service
+
+Executed
+
+```cmd
+sc query OracleServiceXE
+```
+
+Result
+
+```
+RUNNING
+```
+
+Therefore
+
+Windows service was running.
+
+---
+
+# Step 6 - Verify Database Startup
+
+Opened ADRCI
+
+```cmd
+adrci
+```
+
+Executed
+
+```text
+set home diag\rdbms\xe\xe
+
+show alert -tail 100
+```
+
+Alert log showed
+
+```
+Completed: alter database open
+
+Pluggable database XEPDB1 opened read write
+```
+
+Meaning
+
+Database startup was completely successful.
+
+---
+
+# Step 7 - SQL*Plus Local Authentication Failed
+
+Executed
+
+```cmd
+sqlplus / as sysdba
+```
+
+Result
+
+```
+ORA-01017
+```
+
+Initially this looked like a password problem.
+
+Actually it was an OS authentication problem.
+
+---
+
+# Step 8 - Check Windows User
+
+Executed
+
+```cmd
+whoami
+```
+
+Result
+
+```
+azuread\ayubmiaze
+```
+
+Checked ORA_DBA
+
+```cmd
+net localgroup ORA_DBA
+```
+
+Result
+
+```
+SYSTEM
+
+user
+```
+
+The current Windows account
+
+```
+AzureAD\AyubMiaze
+```
+
+was **not** a member of ORA_DBA.
+
+Therefore Windows authentication failed.
+
+---
+
+# Step 9 - Add Windows User to ORA_DBA
+
+Executed as Administrator
+
+```cmd
+net localgroup ORA_DBA "AzureAD\AyubMiaze" /add
+```
+
+Logged out and opened a new Administrator Command Prompt.
+
+Then
+
+```cmd
+sqlplus / as sysdba
+```
+
+Connected successfully.
+
+---
+
+# Step 10 - Verify Database
+
+Executed
+
+```sql
+SHOW PDBS;
+```
+
+Result
+
+```
+PDB$SEED
+READ ONLY
+
+XEPDB1
+READ WRITE
+```
+
+Database was healthy.
+
+---
+
+# Step 11 - Check Services
+
+Executed
+
+```sql
+SHOW PARAMETER service_names;
+
+SHOW PARAMETER local_listener;
+
+SELECT name, network_name
+FROM v$services;
+```
+
+Result
+
+```
+XE
+
+xepdb1
+```
+
+Services existed inside Oracle.
+
+---
+
+# Step 12 - Root Cause of ORA-12514
+
+Listener still showed only
+
+```
+CLRExtProc
+```
+
+Although services existed.
+
+Reason
+
+```
+LOCAL_LISTENER
+```
+
+was pointing to
+
+```
+LISTENER_XE
+```
+
+and the listener never received dynamic registration.
+
+---
+
+# Step 13 - Fix LOCAL_LISTENER
+
+Executed
+
+```sql
+ALTER SYSTEM SET LOCAL_LISTENER =
+'(ADDRESS=(PROTOCOL=TCP)(HOST=DESKTOP-JOPO3NI)(PORT=1521))'
+SCOPE=BOTH;
+
+ALTER SYSTEM REGISTER;
+```
+
+Restarted listener
+
+```cmd
+lsnrctl stop
+
+lsnrctl start
+```
+
+---
+
+# Step 14 - Verify Listener Registration
+
+Executed
+
+```cmd
+lsnrctl status
+```
+
+Now listener displayed
+
+```
+XE
+
+XEPDB1
+
+XEXDB
+```
+
+Status
+
+```
+READY
+```
+
+Dynamic registration was successful.
+
+---
+
+# Step 15 - Test Client Connection
+
+Executed
+
+```sql
+CONNECT sys/"password"@XEPDB1 AS SYSDBA;
+```
+
+Result
+
+```
+Connected.
+```
+
+Problem completely resolved.
+
+---
+
+# Root Causes
+
+## Root Cause 1
+
+`sqlnet.ora` disabled all naming methods.
+
+```text
+NAMES.DIRECTORY_PATH=(none)
+```
+
+Result
+
+```
+ORA-12154
+```
+
+---
+
+## Root Cause 2
+
+Windows account
+
+```
+AzureAD\AyubMiaze
+```
+
+was not a member of
+
+```
+ORA_DBA
+```
+
+Result
+
+```
+ORA-01017
+```
+
+for
+
+```cmd
+sqlplus / as sysdba
+```
+
+---
+
+## Root Cause 3
+
+Listener had not dynamically registered database services.
+
+Result
+
+```
+ORA-12514
+```
+
+---
+
+# Final Working Configuration
+
+### sqlnet.ora
+
+```text
+SQLNET.AUTHENTICATION_SERVICES=(NTS)
+
+NAMES.DIRECTORY_PATH=(TNSNAMES,EZCONNECT)
+```
+
+---
+
+### LOCAL_LISTENER
+
+```text
+(ADDRESS=(PROTOCOL=TCP)(HOST=DESKTOP-JOPO3NI)(PORT=1521))
+```
+
+---
+
+### Listener
+
+```
+XE
+READY
+
+XEPDB1
+READY
+
+XEXDB
+READY
+```
+
+---
+
+### Database
+
+```
+CDB
+OPEN
+
+PDB XEPDB1
+READ WRITE
+```
+
+---
+
+### Successful Connections
+
+OS authentication
+
+```cmd
+sqlplus / as sysdba
+```
+
+TNS connection
+
+```sql
+CONNECT sys/"password"@XEPDB1 AS SYSDBA;
+```
+
+Easy Connect
+
+```text
+localhost:1521/XEPDB1
+```
+
+---
+
+# Key Lessons Learned
+
+1. `ORA-12154` is often caused by `sqlnet.ora` disabling naming methods, not just a missing `tnsnames.ora`.
+2. `ORA-01017` with `sqlplus / as sysdba` can indicate **Windows OS authentication** issues, not necessarily an incorrect database password.
+3. A running `OracleServiceXE` does **not** guarantee that database services are registered with the listener.
+4. Always verify:
+
+   * `tnsping`
+   * `lsnrctl status`
+   * `SHOW PDBS`
+   * `V$SERVICES`
+   * `LOCAL_LISTENER`
+   * `ORA_DBA` membership
+5. Troubleshoot from the lowest layer upward:
+
+   1. Environment variables
+   2. Network configuration (`sqlnet.ora`, `tnsnames.ora`)
+   3. Listener
+   4. Windows authentication
+   5. Database instance
+   6. Dynamic listener registration
+   7. Client connectivity
+
+This layered approach made it possible to isolate and resolve each issue without reinstalling Oracle XE.

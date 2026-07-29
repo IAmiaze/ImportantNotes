@@ -1,0 +1,30 @@
+Answer the below questions using SQL only.
+
+1. Find the employees from employee table who has highest salary within his department.
+2. Write a query for employee table that shows cumulative sum of salary order by employee no.
+
+3. Write a SQL query for STYLE_DELIVERY_INFO table that gives day difference between rows order by delivery date.
+
+  SELECT po_number,
+         style_no,
+         color,
+         order_qty,
+         delivery_date,
+         delivery_date - lag (delivery_date) over (order by delivery_date)    as difference
+    FROM style_delivery_info
+ORDER BY delivery_date;
+
+
+
+4. Write a SQL query for STYLE_DELIVERY_INFO table that gives 7 days sum of ORDER_QTY based on first delivery date grouping by STYLE_NO, COLOR and first DELIVERY_DATE.
+
+
+Select * from (SELECT STYLE_NO,
+         COLOR,
+         MIN (DELIVERY_DATE)     AS FIRST_DELIVERY_DATE,
+         SUM (ORDER_QTY)         AS TOTAL_ORDER_QTY
+    FROM STYLE_DELIVERY_INFO
+   
+GROUP BY STYLE_NO, COLOR)
+WHERE FIRST_DELIVERY_DATE BETWEEN FIRST_DELIVERY_DATE
+                           AND FIRST_DELIVERY_DATE + INTERVAL '6' DAY

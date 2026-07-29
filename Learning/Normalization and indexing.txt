@@ -1,0 +1,203 @@
+In Oracle, indexing is a crucial feature for optimizing query performance by allowing faster retrieval of rows. Oracle provides several types of indexes, each suitable for specific use cases.
+
+---
+
+### **Types of Indexes in Oracle**
+
+#### **1. B-Tree Index (Default Index)**
+- The most common type of index.
+- Organizes data in a balanced tree structure.
+- Suitable for queries that return a small subset of rows.
+
+**Example:**
+```sql
+CREATE INDEX idx_employee_name ON employees (employee_name);
+```
+
+**Use Case:**
+Querying employees by name:
+```sql
+SELECT * FROM employees WHERE employee_name = 'John';
+```
+
+---
+
+#### **2. Bitmap Index**
+- Uses bitmaps for storage.
+- Efficient for columns with low cardinality (few distinct values, e.g., gender, status).
+- Best for read-intensive operations like analytical queries.
+
+**Example:**
+```sql
+CREATE BITMAP INDEX idx_emp_gender ON employees (gender);
+```
+
+**Use Case:**
+Querying by gender:
+```sql
+SELECT * FROM employees WHERE gender = 'M';
+```
+
+---
+
+#### **3. Unique Index**
+- Ensures that all values in the indexed column(s) are unique.
+- Automatically created when a `UNIQUE` or `PRIMARY KEY` constraint is defined.
+
+**Example:**
+```sql
+CREATE UNIQUE INDEX idx_unique_email ON employees (email);
+```
+
+**Use Case:**
+Ensuring unique email addresses:
+```sql
+SELECT * FROM employees WHERE email = 'john.doe@example.com';
+```
+
+---
+
+#### **4. Composite Index (Multi-Column Index)**
+- Combines multiple columns into a single index.
+- Useful when queries filter on multiple columns.
+
+**Example:**
+```sql
+CREATE INDEX idx_emp_name_dept ON employees (employee_name, department_id);
+```
+
+**Use Case:**
+Querying by name and department:
+```sql
+SELECT * FROM employees WHERE employee_name = 'John' AND department_id = 10;
+```
+
+---
+
+#### **5. Function-Based Index**
+- Indexes the result of a function or expression.
+- Useful for queries involving expressions or functions on columns.
+
+**Example:**
+```sql
+CREATE INDEX idx_upper_name ON employees (UPPER(employee_name));
+```
+
+**Use Case:**
+Querying with case-insensitive comparison:
+```sql
+SELECT * FROM employees WHERE UPPER(employee_name) = 'JOHN';
+```
+
+---
+
+#### **6. Reverse Key Index**
+- Reverses the bytes of the indexed column's values.
+- Useful to avoid contention in inserting sequential values in high-concurrency environments.
+
+**Example:**
+```sql
+CREATE INDEX idx_reverse_emp_id ON employees (employee_id) REVERSE;
+```
+
+**Use Case:**
+Optimizing inserts for a high-transaction table:
+```sql
+INSERT INTO employees (employee_id, employee_name) VALUES (101, 'John');
+```
+
+---
+
+#### **7. Domain Index**
+- Custom indexes defined for specific application requirements.
+- Useful for indexing complex data types like spatial, text, or multimedia.
+
+**Example (Text Index):**
+```sql
+CREATE INDEX idx_text_description ON products (description) INDEXTYPE IS CTXSYS.CONTEXT;
+```
+
+**Use Case:**
+Full-text search:
+```sql
+SELECT * FROM products WHERE CONTAINS(description, 'laptop') > 0;
+```
+
+---
+
+#### **8. Cluster Index**
+- Created automatically when creating a cluster.
+- Organizes rows based on cluster key values.
+
+**Example:**
+```sql
+CREATE CLUSTER emp_dept_cluster (department_id NUMBER);
+CREATE INDEX idx_emp_dept_cluster ON CLUSTER emp_dept_cluster;
+```
+
+**Use Case:**
+Efficiently query employees grouped by department:
+```sql
+SELECT * FROM employees WHERE department_id = 10;
+```
+
+---
+
+#### **9. Global and Local Partitioned Indexes**
+- **Global Partitioned Index:** Index spans all partitions in the table.
+- **Local Partitioned Index:** Separate index for each table partition.
+
+**Example (Local Index):**
+```sql
+CREATE INDEX idx_local_sales ON sales (sale_date) LOCAL;
+```
+
+**Use Case:**
+Optimizing queries for partitioned tables:
+```sql
+SELECT * FROM sales WHERE sale_date = TO_DATE('2024-11-20', 'YYYY-MM-DD');
+```
+
+---
+
+#### **10. Invisible Index**
+- Hidden from the optimizer but available for testing and maintenance.
+
+**Example:**
+```sql
+CREATE INDEX idx_invisible_salary ON employees (salary) INVISIBLE;
+```
+
+**Use Case:**
+Test the performance impact of an index:
+```sql
+ALTER INDEX idx_invisible_salary VISIBLE;
+```
+
+---
+
+#### **11. Virtual Column-Based Index**
+- Index created on a virtual column derived from other columns.
+
+**Example:**
+```sql
+ALTER TABLE employees ADD full_name AS (first_name || ' ' || last_name);
+CREATE INDEX idx_full_name ON employees (full_name);
+```
+
+**Use Case:**
+Query using the virtual column:
+```sql
+SELECT * FROM employees WHERE full_name = 'John Doe';
+```
+
+---
+
+### **Choosing the Right Index**
+1. **B-Tree Index:** General-purpose queries.
+2. **Bitmap Index:** Low-cardinality columns, analytical queries.
+3. **Function-Based Index:** Expressions or function results.
+4. **Composite Index:** Multi-column filtering.
+5. **Partitioned Index:** Partitioned tables for scalability.
+
+Indexes improve query performance but increase overhead for DML (INSERT, UPDATE, DELETE). Use them judiciously.

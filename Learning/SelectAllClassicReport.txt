@@ -1,0 +1,43 @@
+---select all column heading---
+<label class="checkbox-item"><input type="checkbox" id="select-all" onclick="selectAllCheckboxes(this)"></label>
+
+-----link----
+<div class="checkbox-container"><label class="checkbox-item"><input type="checkbox" id="#CUST_NO#" onclick="updateCheckedIds()"></label></div>
+
+----target URL--
+javascript:void(0);
+
+----function and gloabl--
+function selectAllCheckboxes(selectAll) {
+            const checkboxes = document.querySelectorAll('.checkbox-container input[type="checkbox"]:not(#select-all)');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+            updateCheckedIds();
+        }
+
+        function updateCheckedIds() {
+            const checkboxes = document.querySelectorAll('.checkbox-container input[type="checkbox"]:not(#select-all)');
+            const checkedIds = [];
+            
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    checkedIds.push(checkbox.id);
+                }
+            });
+            
+            apex.item("P144_MEMBER_CODE").setValue(checkedIds.join(','));
+        }
+		
+		
+		----backend process--
+		 SELECT TO_NUMBER (REGEXP_SUBSTR (pCustNo,
+                                                       '[^,]+',
+                                                       1,
+                                                       LEVEL))    CUST_NO
+                        FROM DUAL
+                  CONNECT BY REGEXP_SUBSTR (pCustNo,
+                                            '[^,]+',
+                                            1,
+                                            LEVEL)
+                                 IS NOT NULL
