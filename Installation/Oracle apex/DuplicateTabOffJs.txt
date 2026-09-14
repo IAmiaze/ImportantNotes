@@ -1,0 +1,27 @@
+(function() {
+  const appId = "&APP_ID.";
+  const latestTabKey = "apex_latest_tab_" + appId;
+  const currentTabKey = "apex_tab_" + appId;
+  const thisTabId = new Date().getTime() + "_" + Math.random();
+
+  if (sessionStorage.getItem(currentTabKey)) {
+    alert("Another tab of this application is already open. This tab will close.");
+    window.close();
+    return;
+  }
+
+  sessionStorage.setItem(currentTabKey, thisTabId);
+  localStorage.setItem(latestTabKey, thisTabId);
+
+  window.addEventListener("beforeunload", function() {
+    sessionStorage.removeItem(currentTabKey);
+  });
+
+  setInterval(function() {
+    const latestTab = localStorage.getItem(latestTabKey);
+    if (latestTab !== thisTabId) {
+      alert("This tab is no longer active. Redirecting to login...");
+      window.location.href = 'f?p=' + appId + ':LOGIN_DESKTOP:&APP_SESSION.';
+    }
+  }, 1000);
+})();

@@ -1,0 +1,81 @@
+🧾 Export Excel Directly in Oracle APEX Without Showing Data on the Screen — No Report Actions, No Regions, Just Pure PL/SQL!
+
+Say goodbye to manual "Actions → Download" clicks in Interactive Reports.
+ Here’s how to trigger an Excel download directly — without using IR/IG or report regions. Just one button, a clean redirect, and a powerful pre-rendering PL/SQL block! 💥
+
+📌 Use Case:
+ Perfect for dashboards, admin panels, or exporting backend data without showing it on screen.
+
+🔧 Step-by-Step Implementation
+
+1️⃣ Page 1: Add a Download Button
+Create a simple page with just a button.
+🔘 Button Action:
+Target Type: Page in this Application 
+Page: 2 (your Excel Process Page) 
+
+2️⃣ Page 2: Backend-Only Excel Process Page
+Create a Blank Page
+ ✅ No regions required
+ ✅ Add a Pre-Rendering Process (Before Header) with this code:
+
+CODE: 
+
+DECLARE
+ l_cursor_id INTEGER;
+ l_col_cnt INTEGER;
+ l_desc_tab DBMS_SQL.DESC_TAB;
+ l_col_val VARCHAR2(4000);
+ l_status INTEGER;
+ l_sql VARCHAR2(32767) := 'SELECT * FROM EMPLOYEE'; -- Customize this
+BEGIN
+ owa_util.mime_header('application/vnd.ms-excel', FALSE);
+ htp.p('Content-Disposition: attachment; filename="employee_data.xls"');
+ owa_util.http_header_close;
+
+ htp.p('<html><body><table border="1">');
+
+ l_cursor_id := DBMS_SQL.open_cursor;
+ DBMS_SQL.parse(l_cursor_id, l_sql, DBMS_SQL.NATIVE);
+ DBMS_SQL.describe_columns(l_cursor_id, l_col_cnt, l_desc_tab);
+
+ FOR i IN 1 .. l_col_cnt LOOP
+ DBMS_SQL.define_column(l_cursor_id, i, l_col_val, 4000);
+ END LOOP;
+
+ l_status := DBMS_SQL.execute(l_cursor_id);
+
+ htp.p('<tr>');
+ FOR i IN 1 .. l_col_cnt LOOP
+ htp.p('<th>' || l_desc_tab(i).col_name || '</th>');
+ END LOOP;
+ htp.p('</tr>');
+
+ WHILE DBMS_SQL.fetch_rows(l_cursor_id) > 0 LOOP
+ htp.p('<tr>');
+ FOR i IN 1 .. l_col_cnt LOOP
+ DBMS_SQL.COLUMN_VALUE(l_cursor_id, i, l_col_val);
+ htp.p('<td>' || l_col_val || '</td>');
+ END LOOP;
+ htp.p('</tr>');
+ END LOOP;
+
+ htp.p('</table></body></html>');
+
+ DBMS_SQL.close_cursor(l_cursor_id);
+ apex_application.stop_apex_engine;
+EXCEPTION
+ WHEN OTHERS THEN
+ IF DBMS_SQL.is_open(l_cursor_id) THEN
+ DBMS_SQL.close_cursor(l_cursor_id);
+ END IF;
+ RAISE;
+END;
+✅ What You Get:
+One-click Excel export
+Works without regions or report actions
+Clean and controlled download behavior
+Easy to maintain and extend
+⚠️ Note:
+ This approach was tested on Oracle APEX 19.
+ It’s just an idea — adapt it for your own use case and environment as needed! 💡

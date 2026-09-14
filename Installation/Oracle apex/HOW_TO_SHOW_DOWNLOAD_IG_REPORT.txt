@@ -1,0 +1,62 @@
+---How to show image & download interactive Grid Report------------
+
+--1st task--
+create new wizard page and create form region dependent image table and schema.
+exam: page 731.
+
+--2nd task---
+create applicataion item  ; example:FILE_ID
+create application process; example:DOWNLOAD_IMG
+point:Ajax Callback
+
+pl/sql:
+
+DECLARE
+    CURSOR c_get_file IS
+        SELECT IMAGE, mime_type, FILENAME
+          FROM memimg.TP_IMAGE
+         WHERE REQUEST_ID = :FILE_ID;
+
+
+    l_product_image   BLOB;
+    l_mimetype        VARCHAR2 (100);
+    l_filename        VARCHAR2 (100);
+BEGIN
+    OPEN c_get_file;
+
+    FETCH c_get_file INTO l_product_image, l_mimetype, l_filename;
+
+    CLOSE c_get_file;
+
+    IF DBMS_LOB.getlength (l_product_image) > 0
+    THEN
+        download_file (in_file_name      => l_filename,
+                       in_mime_type      => l_mimetype,
+                       in_blob_content   => l_product_image);
+    END IF;
+END;
+
+---3rd task---
+Interactive grid report query 
+-------
+
+ '<img src="' || apex_util.get_blob_file_src('P731_IMAGE', REQUEST_ID) || '" width="50" height="50" />'Document,
+       'download' AS download_link,
+
+----4th task----
+
+then download_link ai column k link korbo 
+
+example: 
+page: 714
+set items:
+name:file_id; 
+value:&REQUEST_ID.
+request: APPLICATION_PROCESS=DOWNLOAD_IMG
+
+
+all task example:
+app:105;
+page:713,714,731
+process:DOWNLOAD_IMG
+application_id=FILE_ID;

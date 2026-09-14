@@ -1,0 +1,137 @@
+CREATE TABLESPACE APEX261 DATAFILE 'C:\app\user\product\21c\oradata\XE\APEX261.dbf' SIZE 1000M AUTOEXTEND ON NEXT 1M;
+
+@apexins.sql APEX261 APEX261 TEMP /i/
+
+@apxchpwd.sql
+
+pass: Miajikhan1!
+
+ALTER USER anonymous ACCOUNT UNLOCK;
+alter user APEX_PUBLIC_USER identified by APEX261 account unlock;
+ALTER USER flows_files ACCOUNT UNLOCK;
+
+@apex_rest_config.sql
+
+pass--APEX261
+
+Now, disable the Oracle XML DB Protocol Server by using the following commands: 
+
+SELECT DBMS_XDB.GETHTTPPORT FROM DUAL;
+
+EXEC DBMS_XDB.SETHTTPPORT(0);
+
+alter user APEX_LISTENER identified by APEX261 account unlock;
+
+alter user APEX_REST_PUBLIC_USER identified by APEX261 account unlock;
+
+C:\ORDS>mkdir ords_config
+
+C:\ORDS>
+
+java -jar ords.war --config C:\ORDS\ords_config  install
+
+java -jar ords.war --config C:\ORDS\ords_config  uninstall
+
+C:\ORDS\ords26>java -jar ords.war --config C:\ORDS\ords_config_tom  install
+
+
+java -jar ords.war --config C:\ords\ords_config  install
+
+java -jar ords.war --config C:\Program Files\Apache Software Foundation\Tomcat 8.5\ords\\ords_config_tom install
+
+
+Warning: Support for executing: java -jar ords.war has been deprecated.
+Please add ords to your PATH and use the ords command instead.
+
+ORDS: Release 26.1 Production on Wed May 20 17:27:19 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration: C:\ORDS\ords_config
+
+The configuration folder C:\ORDS\ords_config does not contain any configuration files.
+
+Oracle REST Data Services - Interactive Install
+
+java.lang.reflect.InaccessibleObjectException: Unable to make private static native long[] java.util.prefs.WindowsPreferences.WindowsRegOpenKey(long,byte[],int) accessible: module java.prefs does not "opens java.util.prefs" to unnamed module @5ba23b66
+       
+  Enter a number to select the database connection type to use
+    [1] Basic (host name, port, service name)
+    [2] TNS (TNS alias, TNS directory)
+    [3] Custom database URL
+  Choose [1]:
+  Enter the database host name [localhost]:
+  Enter the database listen port [1521]:
+XEPDB1
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by oracle.jdbc.driver.T2CConnection$1 in an unnamed module
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+  Provide database user name with administrator privileges.
+    Enter the administrator username: SYS
+  Enter the database password for SYS AS SYSDBA:
+
+Retrieving information.
+ORDS is not installed in the database. ORDS installation is required.
+
+  Enter a number to update the value or select option A to Accept and Continue
+    [1] Connection Type: Basic
+    [2] Basic Connection: HOST=localhost PORT=1521 SERVICE_NAME=XEPDB1
+           Administrator User: SYS AS SYSDBA
+    [3] Database password for ORDS runtime user (ORDS_PUBLIC_USER): <generate>
+    [4] ORDS runtime user and schema tablespaces:  Default: SYSAUX Temporary TEMP
+    [5] Additional Feature: Database Actions
+    [6] Configure and start ORDS in Standalone Mode: Yes
+    [7]    Protocol: HTTP
+    [8]       HTTP Port: 8080
+    [9]   APEX static resources location: null
+    [A] Accept and Continue - Create configuration and Install ORDS in the database
+    [Q] Quit - Do not proceed. No changes
+  Choose [A]:
+  
+  
+  CONNECT sys/"Mi@jikhan1"@localhost:1521/XEPDB1 AS SYSDBA
+  
+  SQL> @reset_image_prefix_con.sql
+
+PL/SQL procedure successfully completed.
+
+BEGIN
+    APEX_INSTANCE_ADMIN.SET_PARAMETER('IMAGE_PREFIX', '/i26/');
+    COMMIT;
+END;
+/
+
+C:\ORDS\ords_config\global\doc_root
+
+
+ords --config C:\ORDS\ords_config serve
+
+java -jar ords.war --config C:\APPP\Apex\ORDS\ORACLE_ORDS\config uninstall
+
+java -jar ords.war --config   uninstall
+
+
+D:\Software\OAPEX_26_PKG\apex-latest\apex\images
+
+java -jar ords.war --config C:\ords\ords_config serve
+
+MIAWP
+123456
+
+ords --config C:\ords\ords_261\ords_config serve
+
+C:\ords\ords_261>java -jar ords.war --config C:\ords\ords_config serve
+
+
+
+
+NAMES.DIRECTORY_PATH= (none)
+ALLOWED_LOGON_VERSION=10
+ALLOWED_LOGON_VERSION_SERVER=10
+ALLOWED_LOGON_VERSION_CLIENT=10
+
+
+
+ALTER SESSION SET CONTAINER = ORCLPDB;

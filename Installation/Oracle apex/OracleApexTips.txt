@@ -1,0 +1,9 @@
+show tooltip on item--------
+$("hashtag#P1_NAME").attr("title", "Enter the full name").tooltip();
+
+How to Lock Background Color for Even Rows in APEX Reports.
+ 
+.a-IRR-table tr:nth-child(even), 
+.a-IRR-table tr:nth-child(even) td { 
+ background-color: hashtag#a2a2a2 !important; 
+}

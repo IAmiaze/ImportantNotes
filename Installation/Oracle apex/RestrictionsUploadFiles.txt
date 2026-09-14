@@ -1,0 +1,66 @@
+```google_music_generation
+```
+
+While I cannot directly generate a downloadable `.pdf` file, I have formatted the documentation below so it is **clean, professional, and ready to be saved as a PDF**. 
+
+### **How to save this as a PDF:**
+1.  **Select and Copy** the text below.
+2.  **Paste** it into a Word processor (like MS Word or Google Docs).
+3.  Go to **File > Export / Save As** and select **PDF**.
+
+---
+
+# **Technical Documentation: Restricting File Uploads**
+### **Platform:** Oracle APEX 24.2
+**Author:** Technical Support Team  
+**Date:** March 31, 2026
+
+---
+
+## **1. Overview**
+In Oracle APEX 24.2, restricting file uploads by type has become a native, declarative feature. This document outlines the two primary methods for controlling allowed file formats to enhance application security and user experience.
+
+---
+
+## **2. Method 1: The Native "File Types" Property (Recommended)**
+This is the most efficient approach introduced in version 24.2. It is cleaner, officially supported, and easier to maintain.
+
+### **Step-by-Step Implementation**
+1.  **Open Page Designer:** Navigate to the page containing your file upload item.
+2.  **Select File Browse Item:** In the **Rendering Tree**, click on your `File Browse` page item.
+3.  **Locate Settings:** In the **Property Editor** (right-hand pane), scroll down to the **Settings** section.
+4.  **Configure File Types:**
+    * Find the **File Types** attribute.
+    * Enter a comma-separated list of file extensions or MIME types.
+    * *Example (Standard):* `.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg`
+    * *Example (MIME):* `application/pdf,image/*,text/csv`
+5.  **Save and Run:** Click **Save** and **Run**. The browser's file picker will now automatically filter for these extensions.
+
+---
+
+## **3. Method 2: Custom HTML Attributes (Legacy/Manual)**
+This method utilizes the standard HTML `accept` attribute. It is useful for developers who need to maintain compatibility with older APEX versions or specific manual configurations.
+
+### **Step-by-Step Implementation**
+1.  **Select File Browse Item:** Click on the item in **Page Designer**.
+2.  **Navigate to Advanced:** In the **Property Editor**, scroll down to the **Advanced** section.
+3.  **Enter Custom Attribute:**
+    * In the **Custom Attributes** field, enter the following code:
+    * `accept=".pdf,.png,.jpg,.csv"`
+4.  **Save Changes:** This performs the same browser-level filtering as Method 1 but requires manual syntax management.
+
+---
+
+## **4. Comparison & Best Practices**
+
+| Feature | Method 1: Native Property | Method 2: Custom Attribute |
+| :--- | :--- | :--- |
+| **Maintenance** | High (Declarative UI) | Medium (Requires Manual Entry) |
+| **Security** | Browser-level Filter | Browser-level Filter |
+| **Substitutions** | Supports Page Items/Variables | Limited Support |
+| **Recommended?** | **Yes (for APEX 24.2+)** | Only for Legacy/Specific cases |
+
+> **Security Note:** Browser-level filtering (Method 1 & 2) is a "Client-Side" restriction. For production banking or enterprise environments, always implement a **Server-Side Validation** (PL/SQL) to verify the `MIME_TYPE` of the uploaded file in the `APEX_APPLICATION_TEMP_FILES` table.
+
+---
+**End of Document**

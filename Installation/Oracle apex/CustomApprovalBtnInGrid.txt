@@ -1,0 +1,27 @@
+
+        '<span style="white-space: nowrap;">'
+       ||'<a href="javascript:void(0);" '
+       ||' class="high t-Button t-Button--success '|| decode(STATUS,'A','t-Button--success','t-Button--simple')||' t-Button--pillStart t-Button--small">Approve</a>'
+       ||'<a href="javascript:void(0);" '
+       ||' class="inner t-Button t-Button--danger '|| decode(STATUS,'R','t-Button--danger','t-Button--simple')||' t-Button--pillEnd t-Button--small">Reject</a>'
+       ||'<a href="javascript:void(0);" '
+       ||' class="low t-Button t-Button--warning '|| decode(STATUS,'I','t-Button--warning','t-Button--simple')||' t-Button--pillEnd t-Button--small">No Change</a>'
+       ||'</span>' APPROVE
+	   
+	   var view = apex.region("Approve").widget().interactiveGrid("getViews", "grid");
+ record = view.model.getRecord($(this.triggeringElement).closest('tr').data('id'));
+ view.model.setValue(record, "STATUS", 'A'); 
+$(this.triggeringElement).removeClass("t-Button--simple");
+$(this.triggeringElement).parent().find('.t-Button--warning').addClass("t-Button--simple");
+$(this.triggeringElement).parent().find('.t-Button--danger').addClass("t-Button--simple");
+
+
+$(function() { 
+  $("#Approve").on("interactivegridviewchange", function(event, data) { 
+      if (data.view === "grid" && data.created) { 
+      $("#Approve_ig_grid_vc").grid("hideColumn", "STATUS");  
+    }
+    var ig$ = apex.region("Approve").widget();
+    ig$.interactiveGrid("getActions").set("edit", true);
+  }); 
+})

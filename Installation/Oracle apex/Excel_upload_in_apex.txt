@@ -1,0 +1,440 @@
+---Excel upload in Oracle apex-----------
+DECLARE
+    vBlobContent   BLOB;
+    
+    TYPE UserDataRec IS RECORD (
+        line_number        NUMBER,
+        user_id            VARCHAR2(4000),
+        full_name          VARCHAR2(4000),
+        dob                VARCHAR2(4000),
+        mobile             VARCHAR2(4000),
+        email              VARCHAR2(4000),
+        branch             VARCHAR2(4000),
+        designation        VARCHAR2(4000),
+        branch_opr_type    VARCHAR2(4000),
+        role               VARCHAR2(4000)
+    );
+    
+    TYPE UserDataTab IS TABLE OF UserDataRec;
+    vUserDataTab UserDataTab;
+
+BEGIN
+    IF APEX_COLLECTION.COLLECTION_EXISTS('USER_DATA') THEN
+        APEX_COLLECTION.TRUNCATE_COLLECTION('USER_DATA');
+    ELSE
+        APEX_COLLECTION.CREATE_COLLECTION('USER_DATA');
+    END IF;
+
+    BEGIN
+        SELECT BLOB_CONTENT
+          INTO vBlobContent
+          FROM apex_application_temp_files
+         WHERE NAME = :P31_BROWSE_FILE;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            raise_application_error(-20001, 'File not found: ' || :P31_BROWSE_FILE);
+        WHEN OTHERS THEN
+            raise_application_error(-20002, 'Error retrieving file: ' || SQLERRM);
+    END;
+    BEGIN
+        SELECT line_number,
+               col001     AS user_id,
+               col002     AS full_name,
+               col003     AS dob,
+               col004     AS mobile,
+               col005     AS email,
+               col006     AS branch,
+               col007     AS designation,
+               col008     AS branch_opr_type,
+               col009     AS role
+          BULK COLLECT INTO vUserDataTab
+          FROM TABLE(
+                   APEX_DATA_PARSER.parse(
+                       p_content         => vBlobContent,
+                       p_file_name       => :P31_BROWSE_FILE,
+                       p_add_headers_row => 'N',
+                       p_skip_rows       => 1
+                   )
+               );
+
+        FOR i IN vUserDataTab.FIRST .. vUserDataTab.LAST LOOP
+            APEX_COLLECTION.ADD_MEMBER(
+                p_collection_name => 'USER_DATA',
+                p_c001            => vUserDataTab(i).user_id,
+                p_c002            => vUserDataTab(i).full_name,
+                p_c003            => vUserDataTab(i).dob,
+                p_c004            => vUserDataTab(i).mobile,
+                p_c005            => vUserDataTab(i).email,
+                p_c006            => vUserDataTab(i).branch,
+                p_c007            => vUserDataTab(i).designation,
+                p_c008            => vUserDataTab(i).branch_opr_type,
+                p_c009            => vUserDataTab(i).role,
+                p_n001            => vUserDataTab(i).line_number
+            );
+END LOOP;
+    EXCEPTION
+        WHEN OTHERS THEN
+            raise_application_error(-20003, 'Error processing file data: ' || SQLERRM);
+    END;
+END;
+---------
+SELECT n001 AS LINE_NO,
+       c001 AS USER_ID,
+       c002 AS FULL_NAME,
+       c003 AS DOB,
+       c004 AS MOBILE,
+       c005 AS EMAIL,
+       c006 AS BRANCH,
+       c007 AS DESIGNATION,
+       c008 AS BRANCH_OPR_TYPE,
+       c009 AS ROLE
+  FROM APEX_COLLECTIONS
+ WHERE COLLECTION_NAME = 'USER_DATA'
+ order by n001 ;
+
+-------------
+
+CREATE OR REPLACE PROCEDURE GUMS.PRC_USER_MIGRATION_WITH_EXCEL (
+    pAppId              NUMBER,
+    pAppSession         NUMBER,
+    pAppUser            VARCHAR2,
+    pErrorMessage   OUT VARCHAR2,
+    pErrorFlag      OUT VARCHAR2)
+IS
+    TYPE UserDataRec IS RECORD
+    (
+        line_number        NUMBER,
+        user_code          VARCHAR2 (4000),
+        full_name          VARCHAR2 (4000),
+        dob                VARCHAR2 (4000),
+        mobile             VARCHAR2 (4000),
+        email              VARCHAR2 (4000),
+        branch             VARCHAR2 (4000),
+        designation        VARCHAR2 (4000),
+        branch_opr_type    VARCHAR2 (4000),
+        role               VARCHAR2 (4000),
+        exist_flag         VARCHAR2 (11) DEFAULT 'N'
+    );
+
+    TYPE UserDataTab IS TABLE OF UserDataRec
+        INDEX BY VARCHAR2 (100);
+
+    TYPE BranchRec IS RECORD
+    (
+        branch_code    VARCHAR2 (4)
+    );
+
+    TYPE BranchCodeTable IS TABLE OF BranchRec
+        INDEX BY VARCHAR2 (4);
+
+    TYPE UserDataType IS RECORD
+    (
+        USER_ID              NUMBER,
+        USER_CODE            VARCHAR2 (20 BYTE),
+        USER_NAME            VARCHAR2 (100 BYTE),
+        USER_PWD             VARCHAR2 (50 BYTE),
+        USER_STS             VARCHAR2 (1 BYTE) DEFAULT 'A',
+        USER_DOB             DATE,
+        MOBILE_NO            VARCHAR2 (15 BYTE),
+        EMAIL_ID             VARCHAR2 (50 BYTE),
+        LOGON_PASS_CHANGE    VARCHAR2 (1 BYTE),
+        BRANCH_CODE          VARCHAR2 (4 BYTE),
+        CREATE_BY            VARCHAR2 (50 BYTE),
+        CREATE_DATE          DATE,
+        AUTH_BY              VARCHAR2 (50 BYTE),
+        AUTH_DATE            DATE,
+        ROLE                 VARCHAR2 (1024)
+    );
+
+    TYPE UserDataTable IS TABLE OF UserDataType
+        INDEX BY PLS_INTEGER;
+
+    TYPE ErrorDataRec IS RECORD
+    (
+        user_code    VARCHAR2 (4000),
+        full_name    VARCHAR2 (4000),
+        mobile       VARCHAR2 (4000),
+        branch       VARCHAR2 (4000),
+        error_msg    VARCHAR2 (4000)
+    );
+
+    TYPE ErrorDataTab IS TABLE OF ErrorDataRec
+        INDEX BY PLS_INTEGER;
+
+    -- Variables
+    vErrorCollection   ErrorDataTab;
+    v_user_data        UserDataTable;
+    vUserDataTab       UserDataTab;
+    vBranchCodes       BranchCodeTable;
+    v_ws_id            apex_workspaces.workspace_id%TYPE;
+    vUserRoleExist     NUMBER;
+    vUserId            NUMBER;
+    idx                VARCHAR2 (100);
+    idx_error          NUMBER := 0;
+    err_count          NUMBER;
+    err_idx            PLS_INTEGER;
+    err_msg            VARCHAR2 (1024);
+    vErrorMessage      VARCHAR2 (4000);
+    vMyException       EXCEPTION;
+BEGIN
+    -- Set APEX environment
+    BEGIN
+        SELECT MAX (workspace_id)
+          INTO v_ws_id
+          FROM apex_applications
+         WHERE application_id = pAppId;
+    EXCEPTION
+        WHEN OTHERS
+        THEN
+            raise_application_error (-20001, SQLERRM);
+    END;
+
+    wwv_flow_api.set_security_group_id (v_ws_id);
+    APEX_APPLICATION.g_flow_id := pAppId;
+    APEX_APPLICATION.g_instance := pAppSession;
+
+    FOR i
+        IN (SELECT BRANCH_CODE
+             FROM JSON_TABLE (
+                      GUMS.PKG_FETCH_FROM_REST.PRC_API_CALL_EMOB_REST_ENABLED_SQL (
+                          'SELECT BRANCH_CODE BRANCH_CODE FROM EMOB.MB_BRANCH_MST'),
+                      '$.items[0].resultSet.items[*]'
+                      COLUMNS (BRANCH_CODE VARCHAR2 (4) PATH '$.branch_code')))
+    LOOP
+        vBranchCodes (i.branch_code) := BranchRec (i.branch_code);
+    END LOOP;
+
+    -- Populate user data from APEX_COLLECTIONS
+    FOR i IN (  SELECT n001            AS LINE_NO,
+                       TRIM (c001)     AS USER_CODE,
+                       TRIM (c002)     AS FULL_NAME,
+                       TRIM (c003)     AS DOB,
+                       TRIM (c004)     AS MOBILE,
+                       TRIM (c005)     AS EMAIL,
+                       TRIM (c006)     AS BRANCH,
+                       TRIM (c007)     AS DESIGNATION,
+                       TRIM (c008)     AS BRANCH_OPR_TYPE,
+                       TRIM (c009)     AS ROLE
+                  FROM APEX_COLLECTIONS
+                 WHERE COLLECTION_NAME = 'USER_DATA'
+              ORDER BY n001)
+    LOOP
+        vUserDataTab (i.user_code) :=
+            UserDataRec (i.LINE_NO,
+                         i.USER_CODE,
+                         i.FULL_NAME,
+                         i.DOB,
+                         i.MOBILE,
+                         i.EMAIL,
+                         i.BRANCH,
+                         i.DESIGNATION,
+                         i.BRANCH_OPR_TYPE,
+                         i.ROLE);
+
+        BEGIN
+            SELECT COUNT (*)
+              INTO vUserRoleExist
+              FROM GUMS.MB_GROUP_MST
+             WHERE UPPER (GROUP_NAME) = UPPER (TRIM (i.ROLE));
+
+            IF vUserRoleExist = 0
+            THEN
+                BEGIN
+                    INSERT INTO GUMS.MB_GROUP_MST (GROUP_CODE,
+                                                   GROUP_NAME,
+                                                   STATUS,
+                                                   CREATE_BY,
+                                                   CREATE_DATE)
+                             VALUES (
+                                        (SELECT MAX (NVL (GROUP_CODE, 0) + 1)
+                                           FROM GUMS.MB_GROUP_MST),
+                                        i.ROLE,
+                                        'A',
+                                        pAppUser,
+                                        SYSDATE);
+                EXCEPTION
+                    WHEN OTHERS
+                    THEN
+                        vErrorMessage :=
+                               'Group Insertion Problem Due to:'
+                            || REPLACE (SQLERRM, 'ORA-', NULL);
+                        vErrorCollection (idx_error) :=
+                            ErrorDataRec (
+                                i.user_code,
+                                vUserDataTab (i.user_code).full_name,
+                                vUserDataTab (i.user_code).mobile,
+                                vUserDataTab (i.user_code).branch,
+                                vErrorMessage);
+                        idx_error := idx_error + 1;
+                END;
+            END IF;
+        END;
+    END LOOP;
+
+    -- Check existing users
+    FOR i IN (  SELECT user_code
+                  FROM GUMS.MB_USER_MST
+              ORDER BY user_code)
+    LOOP
+        IF vUserDataTab.EXISTS (i.user_code)
+        THEN
+            vUserDataTab (i.user_code).exist_flag := 'Y';
+            vErrorCollection (idx_error) :=
+                ErrorDataRec (i.user_code,
+                              vUserDataTab (i.user_code).full_name,
+                              vUserDataTab (i.user_code).mobile,
+                              vUserDataTab (i.user_code).branch,
+                              'User already exists');
+            idx_error := idx_error + 1;
+        ELSE
+            NULL;
+        END IF;
+    END LOOP;
+
+    -- Retrieve starting USER_ID
+    BEGIN
+        SELECT MAX (USER_ID) INTO vUserId FROM GUMS.MB_USER_MST;
+    EXCEPTION
+        WHEN NO_DATA_FOUND
+        THEN
+            vUserId := 1;
+    END;
+
+    -- Process new users
+    idx := vUserDataTab.FIRST;
+
+    WHILE idx IS NOT NULL
+    LOOP
+        IF vBranchCodes.EXISTS (vUserDataTab (idx).branch)
+        THEN
+            IF vUserDataTab (idx).exist_flag = 'N'
+            THEN
+                vUserId := vUserId + 1;
+                v_user_data (vUserId) :=
+                    UserDataType (
+                        USER_ID       => vUserId,
+                        USER_CODE     => vUserDataTab (idx).user_code,
+                        USER_NAME     => vUserDataTab (idx).full_name,
+                        USER_PWD      =>
+                            GUMS.DPK_SECURITY.DFN_CREATE_PASSWORD_ENCRYPTED (
+                                   UPPER (vUserDataTab (idx).user_code)
+                                || vUserId,
+                                123456),
+                        USER_DOB      =>
+                            TO_DATE (vUserDataTab (idx).dob, 'YYYY-MM-DD'),
+                        MOBILE_NO     => vUserDataTab (idx).mobile,
+                        EMAIL_ID      => vUserDataTab (idx).email,
+                        BRANCH_CODE   => vUserDataTab (idx).branch,
+                        CREATE_BY     => pAppUser,
+                        CREATE_DATE   => SYSDATE,
+                        AUTH_BY       => pAppUser,
+                        AUTH_DATE     => SYSDATE,
+                        ROLE          => vUserDataTab (idx).ROLE);
+            END IF;
+        ELSE
+            vErrorCollection (idx_error) :=
+                ErrorDataRec (vUserDataTab (idx).user_code,
+                              vUserDataTab (idx).full_name,
+                              vUserDataTab (idx).mobile,
+                              vUserDataTab (idx).branch,
+                              'User Branch Not Found');
+            idx_error := idx_error + 1;
+        END IF;
+
+        idx := vUserDataTab.NEXT (idx);
+    END LOOP;
+
+    BEGIN
+        FORALL i IN INDICES OF v_user_data SAVE EXCEPTIONS
+            INSERT INTO GUMS.MB_USER_MST (USER_ID,
+                                          USER_CODE,
+                                          USER_NAME,
+                                          USER_PWD,
+                                          USER_STS,
+                                          USER_DOB,
+                                          MOBILE_NO,
+                                          EMAIL_ID,
+                                          LOGON_PASS_CHANGE,
+                                          BRANCH_CODE,
+                                          CREATE_BY,
+                                          CREATE_DATE,
+                                          AUTH_BY,
+                                          AUTH_DATE)
+                 VALUES (v_user_data (i).USER_ID,
+                         v_user_data (i).USER_CODE,
+                         v_user_data (i).USER_NAME,
+                         v_user_data (i).USER_PWD,
+                         v_user_data (i).USER_STS,
+                         v_user_data (i).USER_DOB,
+                         v_user_data (i).MOBILE_NO,
+                         v_user_data (i).EMAIL_ID,
+                         v_user_data (i).LOGON_PASS_CHANGE,
+                         v_user_data (i).BRANCH_CODE,
+                         v_user_data (i).CREATE_BY,
+                         v_user_data (i).CREATE_DATE,
+                         v_user_data (i).AUTH_BY,
+                         v_user_data (i).AUTH_DATE);
+
+        FORALL G IN INDICES OF v_user_data
+            INSERT INTO GUMS.MB_USER_GRP (USER_ID,
+                                          GROUP_CODE,
+                                          CREATE_BY,
+                                          CREATE_DATE)
+                     VALUES (
+                                v_user_data (G).USER_ID,
+                                (SELECT GROUP_CODE
+                                  FROM GUMS.MB_GROUP_MST
+                                 WHERE UPPER (GROUP_NAME) =
+                                       UPPER (TRIM (v_user_data (G).ROLE))),
+                                pAppUser,
+                                SYSDATE);
+    EXCEPTION
+        WHEN OTHERS
+        THEN
+            err_count := SQL%BULK_EXCEPTIONS.COUNT;
+
+            FOR i IN 1 .. err_count
+            LOOP
+                err_idx := SQL%BULK_EXCEPTIONS (i).ERROR_INDEX;
+                err_msg := SQLERRM (SQL%BULK_EXCEPTIONS (i).ERROR_CODE);
+                vErrorCollection (idx_error) :=
+                    ErrorDataRec (v_user_data (err_idx).USER_CODE,
+                                  v_user_data (err_idx).USER_NAME,
+                                  v_user_data (err_idx).MOBILE_NO,
+                                  v_user_data (err_idx).BRANCH_CODE,
+                                  err_msg);
+                idx_error := idx_error + 1;
+            END LOOP;
+    END;
+
+
+
+    IF vErrorCollection.COUNT > 0
+    THEN
+        IF NOT APEX_COLLECTION.COLLECTION_EXISTS ('USER_ERROR')
+        THEN
+            APEX_COLLECTION.CREATE_COLLECTION ('USER_ERROR');
+        ELSE
+            APEX_COLLECTION.TRUNCATE_COLLECTION ('USER_ERROR');
+        END IF;
+
+        FOR i IN vErrorCollection.FIRST .. vErrorCollection.LAST
+        LOOP
+            IF vErrorCollection.EXISTS (i)
+            THEN
+                APEX_COLLECTION.ADD_MEMBER (
+                    p_collection_name   => 'USER_ERROR',
+                    p_c001              => vErrorCollection (i).user_code,
+                    p_c002              => vErrorCollection (i).full_name,
+                    p_c003              => vErrorCollection (i).branch,
+                    p_c004              => vErrorCollection (i).error_msg);
+            END IF;
+        END LOOP;
+    END IF;
+
+    IF APEX_COLLECTION.COLLECTION_EXISTS ('USER_DATA')
+    THEN
+        APEX_COLLECTION.TRUNCATE_COLLECTION ('USER_DATA');
+    END IF;
+END;
+/

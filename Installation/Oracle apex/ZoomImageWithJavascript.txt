@@ -1,0 +1,67 @@
+
+
+---Excute on Page Load and IMG column add Class-------
+$("td[headers='IMG']").find('img').addClass("magnify");
+enableImageMagnifier('img.magnify', 900, 1000);
+
+------Function for call modal popup-------
+function enableImageMagnifier(selector, maxWidth = 1200, maxHeight = 1200) {
+  // Add modal HTML only once
+  if (!document.getElementById('image-modal')) {
+    const modal = document.createElement('div');
+    modal.id = 'image-modal';
+    modal.style.cssText = `
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    `;
+
+    const img = document.createElement('img');
+    img.id = 'modal-img';
+    img.style.cssText = `
+      max-width: ${maxWidth}px;
+      max-height: ${maxHeight}px;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(255,255,255,0.2);
+    `;
+
+    const close = document.createElement('span');
+    close.innerHTML = '&times;';
+    close.style.cssText = `
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 30px;
+      color: white;
+      cursor: pointer;
+    `;
+    close.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+
+    modal.appendChild(img);
+    modal.appendChild(close);
+    document.body.appendChild(modal);
+
+    // Hide modal when clicking outside image
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+  }
+
+  document.querySelectorAll(selector).forEach(img => {
+    img.style.cursor = 'zoom-in';
+
+    img.addEventListener('click', function () {
+      const modal = document.getElementById('image-modal');
+      const modalImg = document.getElementById('modal-img');
+      modalImg.src = img.src;
+      modal.style.display = 'flex';
+    });
+  });
+}

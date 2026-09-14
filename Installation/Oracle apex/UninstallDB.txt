@@ -1,0 +1,33 @@
+1. Back Up Your Data
+If you need to keep your information, back up your databases using your respective command-line tools or database management software before deleting anything. [4, 5] 
+## 2. Stop Database Services
+
+   1. Press Win + R, type services.msc, and press Enter.
+   2. Locate the service for your database (e.g., MySQL80, MSSQLSERVER, or OracleServiceORCL).
+   3. Right-click the service and select Stop. [1, 5] 
+
+## 3. Uninstall the Program
+
+   1. Open Control Panel and go to Uninstall a program (under Programs).
+   2. Locate your database software (e.g., MySQL Server or Microsoft SQL Server).
+   3. Click Uninstall or Change, then select Remove and follow the on-screen uninstallation wizard. [5, 6, 7] 
+
+## 4. Delete Leftover Folders
+Even after uninstalling, configuration files and remaining data are often preserved. In File Explorer, delete folders related to your database in these directories: [4, 5, 8] 
+
+* C:\Program Files
+* C:\Program Files (x86)
+* C:\ProgramData (Hidden folder; type %ProgramData% in the address bar)
+* %AppData% (Type %AppData% in the address bar) [4, 5] 
+
+## 5. Clean the Windows Registry (Advanced)
+To guarantee a clean removal, you may need to delete registry entries. [9] 
+
+   1. Press Win + R, type regedit, and press Enter.
+   2. Navigate to HKEY_LOCAL_MACHINE\SOFTWARE and delete the folder corresponding to your database (e.g., MySQL or Microsoft SQL Server).
+   3. (Optional) Navigate to HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services and delete keys related to the database service.
+   Note: Be careful in the registry, as deleting incorrect keys can damage your Windows installation. [1, 4, 10] 
+
+## 6. Restart Your PC
+Restart your system to completely remove temporary files and release any locked services.
+] [https://softwarekeep.com](https://softwarekeep.com/blogs/how-to/how-to-remove-software-leftovers-on-windows)

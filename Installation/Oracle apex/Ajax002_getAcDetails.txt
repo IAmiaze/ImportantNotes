@@ -1,0 +1,132 @@
+DECLARE
+    vErrorFlag      VARCHAR2 (10);
+    vErrorMessage   VARCHAR2 (1024);
+    -- Buffer variables for OUT parameters
+    vBranchCode     VARCHAR2(100);  vCustNo      NUMBER;
+    vCustCode       VARCHAR2(100);  vAcTitle     VARCHAR2(200);
+    vBalance        NUMBER;         vMobileNo    VARCHAR2(20);
+    vAcType         VARCHAR2(100);  vAcTypeId    NUMBER;
+    vSchemeCode     VARCHAR2(100);  vSchemeType  VARCHAR2(100); -- Added
+    vCustAddr       VARCHAR2(500);  vAcId        NUMBER;
+    vCusPointId     NUMBER;         vTranCode    VARCHAR2(100);
+    vRemarks        VARCHAR2(500);
+BEGIN
+    IF :P902_SERVICE_CODE IS NULL THEN 
+        vErrorFlag    := 'Y';
+        vErrorMessage := 'Please Select your Desired Service.';
+        
+        APEX_JSON.OPEN_OBJECT;
+        APEX_JSON.WRITE('status',  vErrorFlag);
+        APEX_JSON.WRITE('message', vErrorMessage);
+        APEX_JSON.CLOSE_OBJECT;
+        RETURN; -- Stop execution here
+    END IF;
+
+
+    EMOB.PKG_FD_DPS_CLOSING.get_ac_details (
+         pAcNo           => APEX_APPLICATION.G_X01, 
+         pOprType        => 'WITHDRAW',
+         pAgentPointId   => :AI_AGENT_POINT_ID,
+         pLogId          => :AI_LOG_ID,
+         pBranchCode     => vBranchCode,
+         pCustNo         => vCustNo,
+         pCustCode       => vCustCode,
+         pAcTitle        => vAcTitle,
+         pBalance        => vBalance,
+         pMobileNo       => vMobileNo,
+         pAcType         => vAcType,
+         pAcTypeId       => vAcTypeId,
+         pSchemeCode     => vSchemeCode,
+         pSchemeType     => vSchemeType, -- Added
+         pCustomerAddress=> vCustAddr,
+         pAcId           => vAcId,
+         pCusPointId     => vCusPointId,
+         pTranCode       => vTranCode,
+         pRemarks        => vRemarks,
+         pErrorFlag      => vErrorFlag,
+         pErrorMessage   => vErrorMessage
+    );
+
+    APEX_JSON.OPEN_OBJECT;
+    APEX_JSON.WRITE('status',      NVL(vErrorFlag, 'N'));
+    APEX_JSON.WRITE('message',     vErrorMessage);
+    
+    IF NVL(vErrorFlag, 'N') = 'N' THEN
+        APEX_JSON.WRITE('custNo',        vCustNo);
+        APEX_JSON.WRITE('custCode',      vCustCode);
+        APEX_JSON.WRITE('acTitle',       vAcTitle);
+        APEX_JSON.WRITE('acId',       vAcId);
+        APEX_JSON.WRITE('balance',       vBalance);
+        APEX_JSON.WRITE('mobileNo',      vMobileNo);
+        APEX_JSON.WRITE('acType',        vAcType);
+        APEX_JSON.WRITE('acTypeId',      vAcTypeId);
+        APEX_JSON.WRITE('pointId',       vCusPointId);
+        APEX_JSON.WRITE('schemeCode',    vSchemeCode);
+        APEX_JSON.WRITE('schemeType',    vSchemeType); -- Added
+        APEX_JSON.WRITE('address',       vCustAddr);
+        APEX_JSON.WRITE('branchCode',    vBranchCode);
+    END IF;
+    APEX_JSON.CLOSE_OBJECT;
+EXCEPTION
+    WHEN OTHERS THEN
+        APEX_JSON.OPEN_OBJECT;
+        APEX_JSON.WRITE('status', 'Y');
+        APEX_JSON.WRITE('message', 'System Error: ' || SQLERRM);
+        APEX_JSON.CLOSE_OBJECT;
+END;
+
+function getAccountDetails(pAcNo) {
+    if (!pAcNo) return;
+
+    //const lSpinner = apex.util.showSpinner();
+    const lSpinner = apex.widget.waitPopup();
+
+    apex.server.process("GET_ACCOUNT_DETAILS", { x01: pAcNo ,
+                                                 pageItems: ["P902_SERVICE_CODE"]}, {
+        success: function(data) {
+            lSpinner.remove();
+            apex.message.clearErrors();
+
+            if (data.status === 'Y') {
+                clearAccountForm();
+                apex.message.showErrors([{
+                    type:       "error",
+                    location:   ["page"],
+                    message:    data.message,
+                    unsafe:     false
+                }]);
+            } else {
+                // Mapping JSON values to Page Items
+                $s("P902_CUSTOMER_NO",       data.custNo);
+                $s("P902_CUSTOMER_CODE",     data.custCode);
+                $s("P902_AC_TITLE",          data.acTitle);
+                $s("P902_AC_ID",             data.acId);
+                $s("P262_CURRENT_BALANCE",   data.balance);
+                $s("P902_MOBILE_NO",         data.mobileNo);
+                $s("P902_AC_TYPE",           data.acType);
+                $s("P902_AC_TYPE_ID",        data.acTypeId);
+                $s("P902_CUSTOMER_POINT_ID", data.pointId);
+                $s("P902_SCHEME_CODE",       data.schemeCode);
+                $s("P902_SCHEME_TYPE",       data.schemeType); // Added
+                $s("P902_CUSTOMER_ADDRESS",  data.address);
+                $s("P262_BRANCH_CODE",       data.branchCode);
+            }
+        },
+        error: function(xhr, status, error) {
+            lSpinner.remove();
+            console.error("AJAX Error:", error);
+        }
+    });
+}
+
+function clearAccountForm() {
+    const items = [
+        "P902_CUSTOMER_NO", "P902_CUSTOMER_CODE", "P902_AC_TITLE","P902_AC_ID",
+        "P262_CURRENT_BALANCE", "P902_MOBILE_NO", "P902_AC_TYPE",
+        "P902_AC_TYPE_ID", "P902_CUSTOMER_POINT_ID", "P902_SCHEME_CODE",
+        "P902_SCHEME_TYPE", "P902_CUSTOMER_ADDRESS", "P262_BRANCH_CODE"
+    ];
+    items.forEach(item => $s(item, ""));
+}
+
+

@@ -1,0 +1,95 @@
+DECLARE
+    vMakerCheck     NUMBER := 0;
+    vErrorFlag      VARCHAR2(1) := 'N';
+    vErrorMessage   VARCHAR2(1000);
+BEGIN
+
+    SELECT COUNT(*)
+    INTO vMakerCheck
+    FROM emob.MB_TOKEN_VIEW_REQUEST_LOG
+    WHERE SMS_ID = :P907_SMS_ID
+    AND REQUEST_BY = :APP_USER;
+
+    IF vMakerCheck > 0 THEN
+        vErrorFlag := 'Y';
+        vErrorMessage := 'Requested user and Checker must be different.';
+    END IF;
+
+    IF vErrorFlag = 'N' THEN
+        BEGIN
+            UPDATE emob.MB_TOKEN_VIEW_REQUEST_LOG
+            SET STATUS       = :P907_APPROVE_STATUS,
+                APPROVE_BY   = :APP_USER,
+                APPROVE_DATE = SYSDATE
+            WHERE SMS_ID = :P907_SMS_ID;
+
+        EXCEPTION
+            WHEN OTHERS THEN
+                vErrorFlag := 'Y';
+                vErrorMessage := 'Authentication Failed Due to - ' || REPLACE(SQLERRM,'ORA-','');
+        END;
+    END IF;
+
+    apex_json.open_object;
+    IF vErrorFlag = 'Y' THEN
+        apex_json.write('errorMessage', vErrorMessage);
+    ELSE
+        apex_json.write('successMessage', 'Authentication Successfully.');
+    END IF;
+    apex_json.close_object;
+
+END;
+
+
+function authProcess() {
+
+    const popup = apex.widget.waitPopup();
+
+    apex.server.process(
+        "AUTHENTICATION_PROCESS",
+        { pageItems: "#P907_SMS_ID,#P907_APPROVE_STATUS" },
+        {
+            dataType: "json",
+
+            success: function(pData) { 
+                if (popup) popup.remove(); 
+                apex.message.clearErrors(); 
+                if (pData.errorMessage) {
+
+                    apex.message.showErrors([{
+                        type: "error",
+                        location: "page",
+                        message: pData.errorMessage,
+                        unsafe: false
+                    }]);
+
+                } else {
+
+                    apex.message.showPageSuccess(pData.successMessage); 
+                    //setTimeout(function () { apex.submit(); }, 1000);
+                }
+            },
+
+            error: function(jqXHR) {
+
+                if (popup) popup.remove(); 
+                let errorMessage = "Failed to call server process."; 
+                try {
+                    const resp = JSON.parse(jqXHR.responseText);
+                    if (resp.errorMessage) {
+                        errorMessage = resp.errorMessage;
+                    }
+                } catch(e){}
+
+                apex.message.clearErrors();
+
+                apex.message.showErrors([{
+                    type: "error",
+                    location: "page",
+                    message: errorMessage,
+                    unsafe: false
+                }]);
+            }
+        }
+    );
+}

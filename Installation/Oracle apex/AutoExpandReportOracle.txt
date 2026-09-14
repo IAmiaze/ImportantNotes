@@ -1,0 +1,100 @@
+❌ Stop Page Navigation! ✅ Interactive Report Row Expansion with AJAX + Caching
+
+Want to show row-level details without page navigation?
+ Here’s a clean, plugin-free solution using AJAX + caching 🔥
+
+💡 Use Case:
+ Imagine a Department Report where users want to instantly view Employees under each department without leaving the page.
+Instead of redirecting or refreshing:
+ 👉 Click ▶ to expand
+ 👉 Load data dynamically
+ 👉 Cache results
+
+🔧 Steps to Implement:
+✅ STEP 1: Query with Expand Icon
+
+SELECT 
+    '<span class="toggle-details" data-id="' || DEPARTMENT_ID || '" 
+     style="cursor:pointer;">▶</span>' AS EXPAND,
+    DEPARTMENT_NAME
+FROM DEPARTMENT
+
+📌 Set Escape Special Characters = OFF
+✅ STEP 2: JavaScript (Page Load)
+
+var detailCache = {};
+
+$(document).on("click", ".toggle-details", function () {
+    var icon = $(this);
+    var tr = icon.closest("tr");
+    var id = icon.data("id");
+    // Toggle close
+    if (tr.next().hasClass("detail-row")) {
+tr.next().remove();
+        icon.text("▶");
+        return;
+    }
+    // Load from cache
+    if (detailCache[id]) {
+        tr.after(`<tr class="detail-row"><td colspan="10">${detailCache[id]}</td></tr>`);
+        icon.text("▼");
+        return;
+    }
+    // Loader
+    tr.after(`<tr class="detail-row"><td colspan="10">Loading...</td></tr>`);
+
+    // AJAX
+    apex.server.process("GET_DETAILS", { x01: id }, {
+        dataType: "text",
+        success: function (data) {
+            detailCache[id] = data;
+tr.next().remove();
+            tr.after(`<tr class="detail-row"><td colspan="10">${data}</td></tr>`);
+            icon.text("▼");
+        }
+    });
+});
+
+✅ STEP 3: AJAX Process (GET_DETAILS)
+
+DECLARE
+    l_html CLOB := '';
+BEGIN
+    l_html := '<table><tr>
+        <th>FIRST_NAME</th>
+        <th>LAST_NAME</th>
+        <th>SALARY</th>
+        <th>DEPT</th>
+    </tr>';
+
+    FOR r IN (
+        SELECT FIRST_NAME, LAST_NAME, SALARY,
+               (SELECT DEPARTMENT_NAME 
+                FROM DEPARTMENT D 
+                WHERE D.DEPARTMENT_ID = E.DEPT_ID) DEPT_NAME
+        FROM EMPLOYEE E
+        WHERE DEPT_ID = APEX_APPLICATION.G_X01
+    )
+    LOOP
+        l_html := l_html || '<tr>
+            <td>' || apex_escape.html(r.FIRST_NAME) || '</td>
+            <td>' || apex_escape.html(r.LAST_NAME) || '</td>
+            <td>' || apex_escape.html(r.SALARY) || '</td>
+            <td>' || apex_escape.html(r.DEPT_NAME) || '</td>
+        </tr>';
+    END LOOP;
+
+    l_html := l_html || '</table>';
+
+    HTP.P(l_html);
+END;
+
+🧠 Result:
+ ✔ Click to expand/collapse
+ ✔ Data loads only once (cached ⚡)
+ ✔ No navigation needed
+📌 Key Benefits:
+✅ Faster performance (cache)
+ ✅ No page refresh
+ ✅ Simple & reusable
+ ✅ Secure (apex_escape.html)

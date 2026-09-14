@@ -1,0 +1,125 @@
+DECLARE
+    V_TOKEN           VARCHAR2 (3000);
+    V_IS_USER_EXIST   NUMBER;
+    V_USER_NO         VARCHAR2 (100);
+    vUserType         VARCHAR2 (3000);
+    vUserInfo         VARCHAR2 (10000);
+BEGIN
+    IF :userName IS NULL
+    THEN
+        APEX_JSON.open_object;
+        APEX_JSON.write ('message', 'user parameter not found');
+        APEX_JSON.close_object;
+        :status := 401;
+        RETURN;
+    END IF;
+
+    SELECT COUNT (*)
+      INTO V_IS_USER_EXIST
+      FROM GUMS.MB_USER_MST
+     WHERE LOWER (USER_CODE) = LOWER ( :userName);
+
+    IF V_IS_USER_EXIST <= 0
+    THEN
+        APEX_JSON.open_object;
+        APEX_JSON.write ('message', 'invalid user found.');
+        APEX_JSON.close_object;
+        :status := 404;
+        RETURN;
+    END IF;
+
+    BEGIN
+        SELECT user_id, USER_TYPE
+          INTO V_USER_NO, vUserType
+          FROM GUMS.MB_USER_MST
+         WHERE LOWER (USER_CODE) = LOWER ( :userName);
+    EXCEPTION
+        WHEN NO_DATA_FOUND
+        THEN
+            APEX_JSON.open_object;
+            APEX_JSON.write ('message', 'user not found');
+            APEX_JSON.close_object;
+            :status := 404;
+            RETURN;
+        WHEN OTHERS
+        THEN
+            APEX_JSON.open_object;
+            APEX_JSON.write ('message', 'user finding problem.');
+            APEX_JSON.close_object;
+            :status := 404;
+            RETURN;
+    END;
+
+    IF vUserType NOT IN ('AGN', 'AGO')
+    THEN
+        APEX_JSON.open_object;
+        APEX_JSON.write ('message', 'Insufficient prevelige to logon EKYC ,Please login with Agent user.');
+        APEX_JSON.close_object;
+        :status := 401;
+        RETURN;
+    END IF;
+
+    BEGIN
+        SELECT json_object (
+                   'user_id' VALUE u.user_code,
+                   'user_name' VALUE u.user_name,
+                   'mobile' VALUE u.mobile_no,
+                   'email' VALUE u.email_id,
+                   'cust_no' VALUE u.cust_no,
+                   'fp_path' VALUE (SELECT LTRIM (RTRIM (PATH_DIR))
+                                      FROM GUMS.MB_GLOBAL_PATH
+                                     WHERE PATH_CODE = 'FP'),
+                   'outlets' VALUE
+                       (SELECT json_object (
+                                   'finacle_id' VALUE a.finacle_id,
+                                   'outlet_name' VALUE a.point_name,
+                                   'point_id' VALUE a.point_id,
+                                   'service_type' VALUE
+                                       NVL (service_type, 'C'),
+                                   'agent_ac_id' VALUE
+                                       (SELECT ac_id
+                                          FROM emob.mb_account_mst
+                                         WHERE TRIM (ac_no) =
+                                               TRIM (a.opr_ac_no)))
+                          FROM emob.st_agent_point a
+                         WHERE a.point_id = u.agent_point_id) pretty)    AS result_json
+          INTO vUserInfo
+          FROM gums.mb_user_mst u
+         WHERE LOWER (user_code) = LOWER ( :userName);
+    EXCEPTION
+        WHEN NO_DATA_FOUND
+        THEN
+            APEX_JSON.open_object;
+            APEX_JSON.write ('message', 'user not found');
+            APEX_JSON.close_object;
+            :status := 404;
+            RETURN;
+        WHEN OTHERS
+        THEN
+            APEX_JSON.open_object;
+            APEX_JSON.write ('message', 'user finding problem.');
+            APEX_JSON.close_object;
+            :status := 404;
+            RETURN;
+    END;
+
+    V_Token :=
+        apex_jwt.encode (
+            p_iss            => 'EkycIssuer',
+            p_sub            => 'EkycJWT',
+            p_aud            => 'Ekyc JWT Recipient',
+            p_nbf_ts         => NULL,
+            p_iat_ts         => SYSDATE,
+            p_exp_sec        => 60 * 120 ,
+            p_jti            => NULL,
+            p_other_claims   => '"agent_info" :' || vUserInfo,
+            p_signature_key   =>
+                sys.UTL_RAW.cast_to_raw (
+                    'EraInfoTechEkyc@ThecityBankPlcAbs#@2024'));
+
+    APEX_JSON.open_object;
+    APEX_JSON.write ('data', V_Token);
+    APEX_JSON.write ('message', 'Success');
+    APEX_JSON.write ('Expired_in_sec', 60 * 120 );
+    APEX_JSON.close_object;
+END;
