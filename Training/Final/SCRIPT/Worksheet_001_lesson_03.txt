@@ -1,0 +1,101 @@
+/* Formatted on 8/24/2026 10:50:15 PM (QP5 v5.388) */
+SELECT UPPER (FIRST_NAME)                     upper_name,
+       LOWER (LAST_NAME)                      lower_name,
+       INITCAP (FIRST_NAME)                   init_cap_name,
+       SALARY,
+       LENGTH (FIRST_NAME)                    length_of_fname,
+       SUBSTR (FIRST_NAME, 1, 6)              substr_name_positive,
+       SUBSTR (FIRST_NAME, 3)                 substr_name_positive_without_range,
+       SUBSTR (FIRST_NAME, -3)                substr_name_ngtv_without_range,
+       FIRST_NAME,
+       INSTR (UPPER (FIRST_NAME), 'D', 1)     INSTR_OF_NAME
+  FROM EMPLOYEES;
+
+
+SELECT first_name || ' ' || last_name
+           FULL_NAME,
+       CONCAT (first_name, last_name)
+           CONCAT_WITH_FUNCTION,
+       REPLACE (first_name, 'Ellen', 'Oracle')
+           REPLACE_FUNCTION,
+       TRANSLATE (SALARY, '1234567890', '??????????')
+           TRANSLATE_SALARY_IN_BN,
+       LTRIM (' Oracle ')
+           Lead_trim,
+       RTRIM (' Oracle ')
+           right_trim,
+       TRIM (' Oracle ')
+           both_trim,
+       REPLACE ('Oracle Database', ' ', '-')
+           remove_space_mid
+  FROM employees;
+
+
+SELECT first_name || ' ' || last_name     FULL_NAME,
+       SALARY / 500,
+       ROUND (SALARY / 500, 2)            ROUND_SALARY,
+       SYSDATE,
+       TRUNC (SYSDATE)                    trunc_date,
+       TRUNC (24.3001)                    trunc_number,
+       SALARY,
+       MOD (SALARY, 2)                    IS_ODD,
+       MOD (SALARY, 3)                    IS_EVEN,
+       SALARY - 15000,
+       ABS (SALARY - 15000)               ABSOULATE
+  FROM employees;
+
+
+
+SELECT SYSDATE + 7
+           week_day,
+       TO_CHAR (ADD_MONTHS (SYSDATE, 3), 'DD Day Month , YYYY')
+           CURRENT_MONTH_NAME,
+       ADD_MONTHS (SYSDATE, 3)
+           ADD_MONTHS_SYSDATE
+  FROM DUAL;
+
+SELECT first_name || ' ' || last_name
+           FULL_NAME,
+       HIRE_DATE,
+       ROUND (MONTHS_BETWEEN (SYSDATE, HIRE_DATE), 2)
+           EMPLOYEE_DURATION_IN_MONTH,
+          ----1 year =12 so we divided that with 12
+          TRUNC (ROUND (MONTHS_BETWEEN (SYSDATE, HIRE_DATE), 2) / 12)
+       || ' Years Ago'
+           EMPLOYEE_JOIN_IN,
+       LAST_DAY (SYSDATE)
+           LAST_DAY_OF_CURRENT_MONTH,
+       NEXT_DAY (SYSDATE, 'FRIDAY')
+           NEXT_FRIDAY,
+       EXTRACT (YEAR FROM HIRE_DATE)
+           JOINING_YEAR,
+       EXTRACT (MONTH FROM HIRE_DATE)
+           JOINING_MONTH
+  FROM EMPLOYEES
+ WHERE EXTRACT (YEAR FROM HIRE_DATE) < '2018';
+
+
+SELECT hire_date,
+       TO_CHAR (hire_date, 'Day-MON-YYYY, HH12:MI:SS PM')
+           CONVERT_WITH_TIME_12,
+       TO_CHAR (SYSDATE, 'Day-MON-YYYY, HH24:MI:SS PM')
+           CONVERT_WITH_TIME_24
+  FROM employees;
+
+
+SELECT first_name || ' ' || last_name              FULL_NAME,
+       salary,
+       TO_CHAR (salary, '$999,999.00')             format_salary,
+       'BDT' || TO_CHAR (salary, '999G999D99')     format_salary_2
+  FROM employees;
+
+SELECT TO_NUMBER(SUBSTR ('MONIR SALARY 50000 TK',
+               INSTR ('MONIR SALARY 50000 TK', '5'),
+               5)) + 1000    SALARY_MONIR,
+      TO_CHAR(TO_DATE (SUBSTR ('MONIR JOIN 2024-03-15',
+               INSTR ('MONIR JOIN 2024-03-15', '2')),'YYYY-MM-DD'),'Day-MON-YYYY, HH24:MI:SS PM') AS DATES
+  FROM DUAL;
+
+
+
+SELECT TO_DATE ('2024-03-15', 'YYYY-MM-DD') FROM DUAL;

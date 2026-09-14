@@ -1,0 +1,51 @@
+/* Formatted on 8/26/2026 10:38:00 PM (QP5 v5.388) */
+/* Null Values Handling */
+
+SELECT FIRST_NAME || ' ' || LAST_NAME
+           FULL_NAME,
+       SALARY,
+       NVL (COMMISSION_PCT, 0)
+           COMMISSION_PCT_NVL,
+       NVL2 (COMMISSION_PCT, FIRST_NAME, LAST_NAME)
+           COMMISSION_PCT_NVL_2_2,
+       NVL2 (COMMISSION_PCT, 'Commissioned+Salary', 'Salary Only')
+           COMMISSION_PCT_NVL_2,
+       0
+           EXP1,
+       NVL (COMMISSION_PCT, 0)
+           EXP2,
+       NULLIF (0, NVL (COMMISSION_PCT, 0))
+           COMMISSION_PCT_NULL_IF,
+       --NULLIF(budget_amount, actual_amount)
+       --100,200
+       --exp1=exp2 THEN NULL else exp1,
+       PHONE_NUMBER_2,
+       PHONE_NUMBER,
+       COALESCE (PHONE_NUMBER_2, PHONE_NUMBER, 'No Phone Registered Yet')
+           ALTERNATIVE_PHONE
+  FROM EMPLOYEES E;
+
+  ---DECODE and CASE 
+
+  SELECT FIRST_NAME || ' ' || LAST_NAME    FULL_NAME,
+         COMMISSION_PCT,
+         CASE
+             WHEN COMMISSION_PCT = 0.4 THEN 'A grade Employee'
+             WHEN COMMISSION_PCT < 0.4 THEN 'B Grade Employee'
+             ELSE 'C Grade'
+         END                               AS EMPLOYEE_GRADE_CASE,
+         
+         DECODE (COMMISSION_PCT,0.4,'A grade Employee',0.35,'B Grade Employee','C Grade' ) AS EMPLOYEE_GRADE_DECODE
+    FROM EMPLOYEES
+ORDER BY 2 DESC NULLS LAST;
+
+
+--------------Update---
+UPDATE CUSTOMER
+   SET DISCOUNT =
+           CASE
+               WHEN CUST_CATEGORY = 'A' THEN '10%'
+               WHEN CUST_CATEGORY = 'B' THEN '5%'
+               WHEN CUST_CATEGORY = 'C' THEN '2%'
+               ELSE '0%'
+           END;
