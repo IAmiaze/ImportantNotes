@@ -1,0 +1,21 @@
+
+IO Error: Unknown host specified
+[root@eraappextestsvr ords-19.1.0.092.1545]# java -jar emob.war validate
+Enter the name of the database server [10.11.204.24]:10.11.204.24
+Enter the database listen port [1524]:1524
+Enter the database service name [emob]:emob
+Requires to login with administrator privileges to verify Oracle REST Data Services schema.
+
+Enter the administrator username:SYS
+Enter the database password for SYS AS SYSDBA:
+Confirm password:
+
+Retrieving information.
+
+Oracle REST Data Services will be validated.
+Validating Oracle REST Data Services schema version 19.1.0.r0921545
+... Log file written to /root/ords_validate_core_2026-10-19_033911_00148.log
+Completed validating Oracle REST Data Services version 19.1.0.r0921545.  Elapsed time: 00:00:12.745
+
+[root@eraappextestsvr ords-19.1.0.092.1545]# cd /u01/ABS-BA/apache-tomcat-9.0.122/webapps
+[root@eraappextestsvr webapps]# java -jar emob.war validate
